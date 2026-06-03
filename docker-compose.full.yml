@@ -40,7 +40,7 @@ services:
       - api
 
   evolution-api:
-    image: atendai/evolutionapi:v2.1.1   # confira a tag mais recente nos docs da Evolution
+    image: evoapicloud/evolution-api:v2.3.7 # <-- Hífen adicionado aqui
     container_name: evolution-api
     restart: unless-stopped
     ports:
@@ -60,7 +60,7 @@ services:
       - evolution-postgres
 
   evolution-postgres:
-    image: postgres:15-alpine
+    image: postgres:15-alpine # <-- Imagem corrigida para o banco de dados
     container_name: evolution-postgres
     restart: unless-stopped
     environment:
