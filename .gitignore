@@ -1,0 +1,36 @@
+# ==========================================
+# Credenciais e Segredos (CRÍTICO - NUNCA SUBIR)
+# ==========================================
+.env
+.env.production
+credentials.json
+
+# ==========================================
+# Banco de Dados Local (SQLite)
+# ==========================================
+*.db
+*.db-journal
+*.db-wal
+
+# ==========================================
+# Dependências do Node.js
+# ==========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ==========================================
+# Arquivos de Configuração do Docker Local
+# ==========================================
+.docker/
+/DATA/.docker/
+
+# ==========================================
+# Sistema Operacional e Editores de Código
+# ==========================================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
