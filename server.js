@@ -14,17 +14,17 @@ app.use(express.static(path.join(__dirname, 'public'))); // serve index.html
 
 const TZ = process.env.TIMEZONE || 'America/Sao_Paulo';
 // Offset fixo do fuso (Brasil não tem horário de verão desde 2019).
-// Garante que o expediente seja calculado no fuso correto mesmo se o
-// servidor rodar em UTC (containers/cloud).
 const OFFSET = process.env.TIMEZONE_OFFSET || '-03:00';
 const hh = (h) => String(h).padStart(2, '0');
 
 // Janela de atendimento. Ajuste conforme o expediente da manicure.
 const EXPEDIENTE = { inicioHora: 9, fimHora: 19 };
-// Dias da semana sem atendimento (0 = domingo, 1 = segunda ... 6 = sábado)
+// Dias da semana sem atendimento (0 = domingo ... 6 = sábado)
 const FOLGAS = [0]; // fecha aos domingos
 // Janela máxima de agendamento (dias à frente)
 const JANELA_DIAS = parseInt(process.env.JANELA_DIAS || '30', 10);
+// Endereço público da landing (para o link de reagendamento). Preencha quando o Tunnel estiver no ar.
+const LANDING_URL = process.env.LANDING_URL || 'http://localhost:8090';
 
 // Início do dia de hoje no fuso de SP (independente do fuso do servidor)
 function inicioHojeSP() {
@@ -47,19 +47,14 @@ app.get('/servicos', (req, res) => {
 });
 
 // ---------- GET /horarios-disponiveis ----------
-// query: ?profissionalId=1&data=2025-06-15&duracaoMin=60
 app.get('/horarios-disponiveis', async (req, res) => {
   try {
     const { profissionalId, data, duracaoMin = 40 } = req.query;
     if (!profissionalId || !data) {
-      return res
-        .status(400)
-        .json({ erro: 'profissionalId e data são obrigatórios' });
+      return res.status(400).json({ erro: 'profissionalId e data são obrigatórios' });
     }
 
-    const prof = db
-      .prepare('SELECT * FROM profissionais WHERE id = ?')
-      .get(profissionalId);
+    const prof = db.prepare('SELECT * FROM profissionais WHERE id = ?').get(profissionalId);
     if (!prof) return res.status(404).json({ erro: 'Profissional não encontrado' });
 
     // Bloqueia datas fora da janela permitida (passado ou além de JANELA_DIAS)
@@ -70,7 +65,7 @@ app.get('/horarios-disponiveis', async (req, res) => {
       return res.json({ data, horarios: [], motivo: 'Data fora do período disponível.' });
     }
 
-    // Bloqueia dias de folga (dia da semana no fuso correto)
+    // Bloqueia dias de folga
     const diaSemana = new Date(`${data}T12:00:00${OFFSET}`).getUTCDay();
     if (FOLGAS.includes(diaSemana)) {
       return res.json({ data, horarios: [], motivo: 'Sem atendimento neste dia.' });
@@ -82,7 +77,6 @@ app.get('/horarios-disponiveis', async (req, res) => {
     const inicioDia = new Date(`${data}T00:00:00`);
     const fimDia = new Date(`${data}T23:59:59`);
 
-    // 1) freeBusy: blocos OCUPADOS na agenda Google
     const fb = await calendar.freebusy.query({
       requestBody: {
         timeMin: inicioDia.toISOString(),
@@ -93,34 +87,27 @@ app.get('/horarios-disponiveis', async (req, res) => {
     });
     const ocupados = fb.data.calendars[prof.calendar_id].busy || [];
 
-    // 2) Gera slots dentro do expediente e remove os que colidem / no passado.
-    //    Boundaries construídos com offset explícito → corretos em qualquer fuso de servidor.
     const slots = [];
     const cursor = new Date(`${data}T${hh(EXPEDIENTE.inicioHora)}:00:00${OFFSET}`);
     const limite = new Date(`${data}T${hh(EXPEDIENTE.fimHora)}:00:00${OFFSET}`);
-
     const agora = new Date();
 
     while (cursor < limite) {
       const slotInicio = new Date(cursor);
       const slotFim = new Date(cursor.getTime() + duracao * 60000);
-
       if (slotFim <= limite) {
         const colide = ocupados.some((b) => {
           const bIni = new Date(b.start);
           const bFim = new Date(b.end);
-          return slotInicio < bFim && slotFim > bIni; // sobreposição
+          return slotInicio < bFim && slotFim > bIni;
         });
         const noPassado = slotInicio <= agora;
-
         if (!colide && !noPassado) {
           slots.push({
             inicio: slotInicio.toISOString(),
             fim: slotFim.toISOString(),
             label: slotInicio.toLocaleTimeString('pt-BR', {
-              hour: '2-digit',
-              minute: '2-digit',
-              timeZone: TZ,
+              hour: '2-digit', minute: '2-digit', timeZone: TZ,
             }),
           });
         }
@@ -139,16 +126,10 @@ app.get('/horarios-disponiveis', async (req, res) => {
 app.post('/agendamento', async (req, res) => {
   try {
     const {
-      profissionalId,
-      servicoNome,
-      valor,
-      clienteNome,
-      clienteTelefone, // E.164: 5521999998888
-      inicio,
-      fim,
+      profissionalId, servicoNome, valor,
+      clienteNome, clienteTelefone, inicio, fim,
     } = req.body;
 
-    // Validação de servidor (nunca confie só no front)
     if (!profissionalId || !clienteNome || !clienteTelefone || !inicio || !fim) {
       return res.status(400).json({ erro: 'Campos obrigatórios ausentes' });
     }
@@ -158,7 +139,6 @@ app.post('/agendamento', async (req, res) => {
     if (!/^55\d{10,11}$/.test(clienteTelefone)) {
       return res.status(400).json({ erro: 'Telefone inválido' });
     }
-    // Bloqueia datas fora da janela permitida
     const inicioHoje = inicioHojeSP();
     const limiteJanela = new Date(inicioHoje.getTime() + (JANELA_DIAS + 1) * 86400000);
     const alvoData = new Date(inicio);
@@ -166,28 +146,18 @@ app.post('/agendamento', async (req, res) => {
       return res.status(400).json({ erro: 'Data fora do período disponível.' });
     }
 
-    const prof = db
-      .prepare('SELECT * FROM profissionais WHERE id = ?')
-      .get(profissionalId);
+    const prof = db.prepare('SELECT * FROM profissionais WHERE id = ?').get(profissionalId);
     if (!prof) return res.status(404).json({ erro: 'Profissional não encontrado' });
 
     const calendar = getCalendarClient(prof.subject_email);
 
-    // Re-checagem anti-corrida: o slot ainda está livre?
     const fb = await calendar.freebusy.query({
-      requestBody: {
-        timeMin: inicio,
-        timeMax: fim,
-        items: [{ id: prof.calendar_id }],
-      },
+      requestBody: { timeMin: inicio, timeMax: fim, items: [{ id: prof.calendar_id }] },
     });
     if ((fb.data.calendars[prof.calendar_id].busy || []).length > 0) {
-      return res
-        .status(409)
-        .json({ erro: 'Esse horário acabou de ser ocupado. Escolha outro.' });
+      return res.status(409).json({ erro: 'Esse horário acabou de ser ocupado. Escolha outro.' });
     }
 
-    // Insere evento no Google Calendar
     const evento = await calendar.events.insert({
       calendarId: prof.calendar_id,
       requestBody: {
@@ -202,28 +172,16 @@ app.post('/agendamento', async (req, res) => {
       },
     });
 
-    // Persiste (necessário para o cron de lembretes)
     db.prepare(
       `INSERT INTO agendamentos
         (google_event_id, profissional_id, servico_nome, cliente_nome,
          cliente_telefone, inicio, fim)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      evento.data.id,
-      profissionalId,
-      servicoNome,
-      clienteNome,
-      clienteTelefone,
-      inicio,
-      fim
-    );
+    ).run(evento.data.id, profissionalId, servicoNome, clienteNome, clienteTelefone, inicio, fim);
 
-    // Ação 1: confirmação imediata via WhatsApp
     const dataFmt = new Date(inicio).toLocaleDateString('pt-BR', { timeZone: TZ });
     const horaFmt = new Date(inicio).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: TZ,
+      hour: '2-digit', minute: '2-digit', timeZone: TZ,
     });
     const primeiroNome = clienteNome.trim().split(/\s+/)[0];
 
@@ -240,13 +198,34 @@ app.post('/agendamento', async (req, res) => {
   }
 });
 
-// ---------- POST /webhook-whatsapp ----------
-// Configure este endpoint no painel do seu gateway para receber respostas (1/2).
+// ---------- POST /webhook-whatsapp (Evolution API) ----------
+// Lê o evento messages.upsert e processa as respostas:
+//   1 = Confirmar | 2 = Reagendar | 3 = Cancelar
 app.post('/webhook-whatsapp', async (req, res) => {
-  try {
-    const { phone, message } = req.body; // ajuste ao formato do seu provedor
-    const texto = (message || '').trim();
+  // Responde 200 imediatamente para o gateway não reenviar em loop.
+  res.sendStatus(200);
 
+  try {
+    const body = req.body || {};
+    if (body.event !== 'messages.upsert') return;
+
+    const data = body.data || {};
+    const key = data.key || {};
+
+    // Ignora mensagens enviadas pela própria manicure (evita loop) e grupos.
+    if (key.fromMe) return;
+    const remoteJid = key.remoteJid || '';
+    if (!remoteJid.includes('@s.whatsapp.net')) return; // só conversas 1:1
+
+    // Número no mesmo formato salvo no banco: 55 + DDD + número
+    const phone = remoteJid.split('@')[0].split(':')[0];
+
+    // Texto: mensagem simples vem em conversation; texto "longo" em extendedTextMessage.
+    const msg = data.message || {};
+    const texto = (msg.conversation || msg.extendedTextMessage?.text || '').trim();
+    if (!['1', '2', '3'].includes(texto)) return; // ignora qualquer outra coisa
+
+    // Agendamento ativo mais próximo desse número
     const ag = db
       .prepare(
         `SELECT * FROM agendamentos
@@ -255,25 +234,40 @@ app.post('/webhook-whatsapp', async (req, res) => {
       )
       .get(phone);
 
-    if (ag) {
-      if (texto === '2') {
-        const prof = db
-          .prepare('SELECT * FROM profissionais WHERE id = ?')
-          .get(ag.profissional_id);
-        const calendar = getCalendarClient(prof.subject_email);
-        await calendar.events
-          .delete({ calendarId: prof.calendar_id, eventId: ag.google_event_id })
-          .catch((e) => console.error('delete evento:', e.message));
-        db.prepare("UPDATE agendamentos SET status='cancelado' WHERE id=?").run(ag.id);
-        await enviarWhatsapp(phone, 'Seu agendamento foi cancelado. Até a próxima! 💕');
-      } else if (texto === '1') {
-        await enviarWhatsapp(phone, 'Presença confirmada! Te esperamos. 😊');
-      }
+    if (!ag) {
+      await enviarWhatsapp(phone, 'Não encontrei um agendamento ativo no seu número. 🤔');
+      return;
     }
-    res.sendStatus(200);
+
+    const prof = db.prepare('SELECT * FROM profissionais WHERE id = ?').get(ag.profissional_id);
+    const calendar = getCalendarClient(prof?.subject_email);
+
+    // --- Helper: remove o evento do Google e marca como cancelado ---
+    async function liberarAgenda(novoStatus) {
+      await calendar.events
+        .delete({ calendarId: prof.calendar_id, eventId: ag.google_event_id })
+        .catch((e) => console.error('[webhook] delete evento:', e.message));
+      db.prepare('UPDATE agendamentos SET status = ? WHERE id = ?').run(novoStatus, ag.id);
+    }
+
+    if (texto === '1') {
+      // CONFIRMAR
+      await enviarWhatsapp(phone, 'Presença confirmada! Te esperamos. 😊💅');
+    } else if (texto === '2') {
+      // REAGENDAR: libera o horário atual e manda o link da landing
+      await liberarAgenda('cancelado');
+      await enviarWhatsapp(
+        phone,
+        'Sem problemas! Seu horário foi liberado.\n' +
+          `Escolha um novo dia e horário aqui: ${LANDING_URL} 💅`
+      );
+    } else if (texto === '3') {
+      // CANCELAR
+      await liberarAgenda('cancelado');
+      await enviarWhatsapp(phone, 'Seu agendamento foi cancelado. Até a próxima! 💕');
+    }
   } catch (err) {
     console.error('[webhook-whatsapp]', err.message);
-    res.sendStatus(200); // sempre 200 p/ o gateway não reenviar em loop
   }
 });
 
