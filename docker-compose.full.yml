@@ -40,7 +40,7 @@ services:
       - api
 
   evolution-api:
-    image: evoapicloud/evolution-api:v2.3.7 # <-- Hífen adicionado aqui
+    image: evoapicloud/evolution-api:latest # <-- Hífen adicionado aqui
     container_name: evolution-api
     restart: unless-stopped
     ports:
@@ -54,6 +54,7 @@ services:
       - DATABASE_SAVE_DATA_NEW_MESSAGE=true
       - CACHE_LOCAL_ENABLED=true
       - CACHE_REDIS_ENABLED=false
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1040656236
     volumes:
       - evolution-instances:/evolution/instances
     depends_on:
