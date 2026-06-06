@@ -2,15 +2,63 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const db = require('./db');
 const { getCalendarClient } = require('./google');
 const { enviarWhatsapp } = require('./whatsapp');
+const { montarMensagem } = require('./mensagens');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// Atrás do Cloudflare Tunnel / proxy reverso: confia no 1º proxy para o rate-limit
+// enxergar o IP real do cliente (e não o IP interno do túnel).
+app.set('trust proxy', 1);
+
+// --- Cabeçalhos de segurança ---
+// Mantém a CDN do Tailwind e as fontes do Google funcionando na landing.
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // a landing usa CDN/inline; CSP exigiria ajuste fino
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// --- CORS restrito ---
+// Domínio(s) liberado(s) via .env: CORS_ORIGIN=https://agendar.seudominio.com.br
+// Vários domínios separados por vírgula. Vazio = libera tudo (use só em dev/local).
+const ORIGENS = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(
+  cors({
+    origin: ORIGENS.length ? ORIGENS : true,
+  })
+);
+
+app.use(express.json({ limit: '10kb' })); // corpo pequeno; agendamento não precisa de mais
 app.use(express.static(path.join(__dirname, 'public'))); // serve index.html
+
+// --- Rate limit ---
+// Geral: protege toda a API contra abuso de volume.
+const limiteGeral = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 100, // até 100 requisições/min por IP (folgado p/ navegação normal)
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiteGeral);
+
+// Específico e mais rígido na criação de agendamento (rota pública sensível).
+const limiteAgendamento = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // até 5 agendamentos por IP a cada 15 min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' },
+});
 
 const TZ = process.env.TIMEZONE || 'America/Sao_Paulo';
 // Offset fixo do fuso (Brasil não tem horário de verão desde 2019).
@@ -123,7 +171,7 @@ app.get('/horarios-disponiveis', async (req, res) => {
 });
 
 // ---------- POST /agendamento ----------
-app.post('/agendamento', async (req, res) => {
+app.post('/agendamento', limiteAgendamento, async (req, res) => {
   try {
     const {
       profissionalId, servicoNome, valor,
@@ -185,10 +233,20 @@ app.post('/agendamento', async (req, res) => {
     });
     const primeiroNome = clienteNome.trim().split(/\s+/)[0];
 
-    await enviarWhatsapp(
-      clienteTelefone,
-      `Olá ${primeiroNome}, seu agendamento para ${servicoNome} foi ` +
-        `confirmado para o dia ${dataFmt} às ${horaFmt}. 💅✨`
+    // Mensagem de confirmação com variação de texto (anti-bot).
+    const msgConfirmacao = montarMensagem('confirmacao', {
+      nome: primeiroNome,
+      servico: servicoNome,
+      profissional: prof.nome,
+      data: dataFmt,
+      hora: horaFmt,
+    });
+
+    // IMPORTANTE: fire-and-forget. Não usamos await aqui para o cliente não
+    // ficar esperando o delay humano do WhatsApp. A tela de "confirmado"
+    // aparece na hora; a mensagem sai em segundo plano.
+    enviarWhatsapp(clienteTelefone, msgConfirmacao).catch((e) =>
+      console.error('[agendamento] envio whatsapp:', e.message)
     );
 
     res.status(201).json({ ok: true, eventId: evento.data.id });
@@ -207,15 +265,29 @@ app.post('/webhook-whatsapp', async (req, res) => {
 
   try {
     const body = req.body || {};
-    if (body.event !== 'messages.upsert') return;
+
+    // Filtro de evento TOLERANTE: a Evolution pode mandar 'messages.upsert',
+    // 'MESSAGES_UPSERT' ou variações. Normaliza antes de comparar.
+    const evento = String(body.event || '').toLowerCase().replace(/_/g, '.');
+    console.log('[webhook] recebido. event =', JSON.stringify(body.event), '-> normalizado:', evento);
+    if (evento !== 'messages.upsert') {
+      console.log('[webhook] ignorado (evento não é messages.upsert)');
+      return;
+    }
 
     const data = body.data || {};
     const key = data.key || {};
 
     // Ignora mensagens enviadas pela própria manicure (evita loop) e grupos.
-    if (key.fromMe) return;
+    if (key.fromMe) {
+      console.log('[webhook] ignorado (fromMe = true)');
+      return;
+    }
     const remoteJid = key.remoteJid || '';
-    if (!remoteJid.includes('@s.whatsapp.net')) return; // só conversas 1:1
+    if (!remoteJid.includes('@s.whatsapp.net')) {
+      console.log('[webhook] ignorado (não é conversa 1:1):', remoteJid);
+      return;
+    }
 
     // Número no mesmo formato salvo no banco: 55 + DDD + número
     const phone = remoteJid.split('@')[0].split(':')[0];
@@ -223,7 +295,11 @@ app.post('/webhook-whatsapp', async (req, res) => {
     // Texto: mensagem simples vem em conversation; texto "longo" em extendedTextMessage.
     const msg = data.message || {};
     const texto = (msg.conversation || msg.extendedTextMessage?.text || '').trim();
-    if (!['1', '2', '3'].includes(texto)) return; // ignora qualquer outra coisa
+    console.log(`[webhook] de ${phone} | texto: "${texto}"`);
+    if (!['1', '2', '3'].includes(texto)) {
+      console.log('[webhook] ignorado (texto não é 1, 2 ou 3)');
+      return;
+    }
 
     // Agendamento ativo mais próximo desse número
     const ag = db
@@ -235,39 +311,83 @@ app.post('/webhook-whatsapp', async (req, res) => {
       .get(phone);
 
     if (!ag) {
+      console.log('[webhook] nenhum agendamento confirmado para', phone);
       await enviarWhatsapp(phone, 'Não encontrei um agendamento ativo no seu número. 🤔');
       return;
     }
+    console.log(`[webhook] agendamento encontrado: id ${ag.id}, inicio ${ag.inicio}`);
 
     const prof = db.prepare('SELECT * FROM profissionais WHERE id = ?').get(ag.profissional_id);
-    const calendar = getCalendarClient(prof?.subject_email);
+    if (!prof) {
+      console.error('[webhook] profissional não encontrado para agendamento', ag.id);
+      await enviarWhatsapp(phone, 'Tive um problema ao processar. Por favor, fale com o salão. 🙏');
+      return;
+    }
+    const calendar = getCalendarClient(prof.subject_email);
 
     // --- Helper: remove o evento do Google e marca como cancelado ---
+    // Retorna true só se o cancelamento foi REALMENTE concluído.
     async function liberarAgenda(novoStatus) {
-      await calendar.events
-        .delete({ calendarId: prof.calendar_id, eventId: ag.google_event_id })
-        .catch((e) => console.error('[webhook] delete evento:', e.message));
-      db.prepare('UPDATE agendamentos SET status = ? WHERE id = ?').run(novoStatus, ag.id);
+      try {
+        if (ag.google_event_id) {
+          await calendar.events.delete({
+            calendarId: prof.calendar_id,
+            eventId: ag.google_event_id,
+          });
+          console.log('[webhook] evento removido do Google:', ag.google_event_id);
+        } else {
+          console.warn('[webhook] agendamento sem google_event_id; só atualiza o banco');
+        }
+        db.prepare('UPDATE agendamentos SET status = ? WHERE id = ?').run(novoStatus, ag.id);
+        console.log(`[webhook] agendamento ${ag.id} marcado como ${novoStatus}`);
+        return true;
+      } catch (e) {
+        // 410/404 = evento já não existe no Google: tratamos como "já liberado".
+        const code = e?.code || e?.response?.status;
+        if (code === 410 || code === 404) {
+          console.warn('[webhook] evento já não existia no Google; marcando como', novoStatus);
+          db.prepare('UPDATE agendamentos SET status = ? WHERE id = ?').run(novoStatus, ag.id);
+          return true;
+        }
+        console.error('[webhook] FALHA ao liberar agenda:', e.message);
+        return false;
+      }
     }
+
+    // Primeiro nome do cliente, pra personalizar as respostas.
+    const primeiroNomeCli = (ag.cliente_nome || '').trim().split(/\s+/)[0] || '';
 
     if (texto === '1') {
       // CONFIRMAR
-      await enviarWhatsapp(phone, 'Presença confirmada! Te esperamos. 😊💅');
+      db.prepare("UPDATE agendamentos SET status = 'confirmado' WHERE id = ?").run(ag.id);
+      await enviarWhatsapp(phone, montarMensagem('confirmado', { nome: primeiroNomeCli }));
+      console.log('[webhook] confirmado id', ag.id);
     } else if (texto === '2') {
-      // REAGENDAR: libera o horário atual e manda o link da landing
-      await liberarAgenda('cancelado');
-      await enviarWhatsapp(
-        phone,
-        'Sem problemas! Seu horário foi liberado.\n' +
-          `Escolha um novo dia e horário aqui: ${LANDING_URL} 💅`
-      );
+      // REAGENDAR: SÓ avisa "liberado" se realmente liberou.
+      const ok = await liberarAgenda('cancelado');
+      if (ok) {
+        await enviarWhatsapp(
+          phone,
+          montarMensagem('reagendar', { nome: primeiroNomeCli, link: LANDING_URL })
+        );
+      } else {
+        await enviarWhatsapp(
+          phone,
+          'Tive um problema ao liberar seu horário. Por favor, fale com o salão. 🙏'
+        );
+      }
     } else if (texto === '3') {
       // CANCELAR
-      await liberarAgenda('cancelado');
-      await enviarWhatsapp(phone, 'Seu agendamento foi cancelado. Até a próxima! 💕');
+      const ok = await liberarAgenda('cancelado');
+      await enviarWhatsapp(
+        phone,
+        ok
+          ? montarMensagem('cancelado', { nome: primeiroNomeCli })
+          : 'Tive um problema ao cancelar. Por favor, fale com o salão. 🙏'
+      );
     }
   } catch (err) {
-    console.error('[webhook-whatsapp]', err.message);
+    console.error('[webhook-whatsapp] erro geral:', err.message);
   }
 });
 

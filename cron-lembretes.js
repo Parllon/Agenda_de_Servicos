@@ -6,7 +6,8 @@
 require('dotenv').config();
 const cron = require('node-cron');
 const db = require('./db');
-const { enviarWhatsapp } = require('./whatsapp');
+const { enviarWhatsapp, enviarWhatsappLote } = require('./whatsapp');
+const { montarMensagem } = require('./mensagens');
 
 const TZ = process.env.TIMEZONE || 'America/Sao_Paulo';
 const OFFSET = process.env.TIMEZONE_OFFSET || '-03:00';
@@ -36,15 +37,27 @@ async function processarLembretes() {
 
   console.log(`[cron:relativo] ${new Date().toISOString()} — ${pendentes.length} lembrete(s)`);
 
-  for (const ag of pendentes) {
-    const msg =
-      `Olá ${primeiroNome(ag.cliente_nome)}! Lembrete: seu ${ag.servico_nome} é hoje às ${horaLabel(ag.inicio)}. 💅\n` +
-      `Te esperamos!`;
-    const r = await enviarWhatsapp(ag.cliente_telefone, msg);
+  if (pendentes.length === 0) return;
+
+  // Monta a lista com texto variado e envia ESPAÇADO (anti-rajada).
+  const itens = pendentes.map((ag) => ({
+    _id: ag.id,
+    telefone: ag.cliente_telefone,
+    mensagem: montarMensagem('lembrete1h', {
+      nome: primeiroNome(ag.cliente_nome),
+      servico: ag.servico_nome,
+      hora: horaLabel(ag.inicio),
+    }),
+  }));
+
+  const resultados = await enviarWhatsappLote(itens);
+
+  // Marca como enviado só os que deram certo (casa resultado com o id pelo índice).
+  resultados.forEach((r, i) => {
     if (r.ok) {
-      db.prepare('UPDATE agendamentos SET lembrete_enviado = 1 WHERE id = ?').run(ag.id);
+      db.prepare('UPDATE agendamentos SET lembrete_enviado = 1 WHERE id = ?').run(itens[i]._id);
     }
-  }
+  });
 }
 
 // ===================== 2) LEMBRETE DA VÉSPERA (horário fixo) =====================
@@ -67,15 +80,25 @@ async function processarVespera() {
 
   console.log(`[cron:vespera] ${new Date().toISOString()} — ${amanha.length} confirmação(ões)`);
 
-  for (const ag of amanha) {
-    const msg =
-      `Olá ${primeiroNome(ag.cliente_nome)}! Amanhã você tem ${ag.servico_nome} às ${horaLabel(ag.inicio)}. 💅\n` +
-      `Podemos confirmar? Responda *1* para Confirmar ou *2* para Cancelar.`;
-    const r = await enviarWhatsapp(ag.cliente_telefone, msg);
+  if (amanha.length === 0) return;
+
+  const itens = amanha.map((ag) => ({
+    _id: ag.id,
+    telefone: ag.cliente_telefone,
+    mensagem: montarMensagem('vespera', {
+      nome: primeiroNome(ag.cliente_nome),
+      servico: ag.servico_nome,
+      hora: horaLabel(ag.inicio),
+    }),
+  }));
+
+  const resultados = await enviarWhatsappLote(itens);
+
+  resultados.forEach((r, i) => {
     if (r.ok) {
-      db.prepare('UPDATE agendamentos SET lembrete_vespera_enviado = 1 WHERE id = ?').run(ag.id);
+      db.prepare('UPDATE agendamentos SET lembrete_vespera_enviado = 1 WHERE id = ?').run(itens[i]._id);
     }
-  }
+  });
 }
 
 // ===================== AGENDAMENTOS DO CRON =====================
