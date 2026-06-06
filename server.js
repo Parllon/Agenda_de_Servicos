@@ -68,7 +68,7 @@ const hh = (h) => String(h).padStart(2, '0');
 // Janela de atendimento. Ajuste conforme o expediente da manicure.
 const EXPEDIENTE = { inicioHora: 9, fimHora: 19 };
 // Dias da semana sem atendimento (0 = domingo ... 6 = sábado)
-const FOLGAS = [0]; // fecha aos domingos
+const FOLGAS = []; // fecha aos domingos
 // Janela máxima de agendamento (dias à frente)
 const JANELA_DIAS = parseInt(process.env.JANELA_DIAS || '30', 10);
 // Endereço público da landing (para o link de reagendamento). Preencha quando o Tunnel estiver no ar.

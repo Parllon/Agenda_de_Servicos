@@ -40,7 +40,7 @@ services:
       - api
 
   evolution-api:
-    image: evoapicloud/evolution-api:latest # <-- Hífen adicionado aqui
+    image: evoapicloud/evolution-api:v2.3.7 # <-- Hífen adicionado aqui
     container_name: evolution-api
     restart: unless-stopped
     ports:
