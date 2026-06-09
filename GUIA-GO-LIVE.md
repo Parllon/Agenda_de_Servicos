@@ -67,7 +67,7 @@ certificado (`cert.pem`) pra `~/.cloudflared/`.
 
 ```bash
 # 2) cria o tunnel (dê um nome claro)
-cloudflared tunnel create agendamento-patricia
+cloudflared tunnel create agendamento
 ```
 
 Isso gera um **ID de tunnel** e um arquivo de credenciais
