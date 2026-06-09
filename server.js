@@ -65,10 +65,20 @@ const TZ = process.env.TIMEZONE || 'America/Sao_Paulo';
 const OFFSET = process.env.TIMEZONE_OFFSET || '-03:00';
 const hh = (h) => String(h).padStart(2, '0');
 
-// Janela de atendimento. Ajuste conforme o expediente da manicure.
-const EXPEDIENTE = { inicioHora: 9, fimHora: 19 };
-// Dias da semana sem atendimento (0 = domingo ... 6 = sábado)
-const FOLGAS = []; // fecha aos domingos
+// Janela de atendimento (vinda do .env; padrão 9h–19h se não definida).
+//   EXPEDIENTE_INICIO=9  EXPEDIENTE_FIM=19
+const EXPEDIENTE = {
+  inicioHora: parseInt(process.env.EXPEDIENTE_INICIO || '9', 10),
+  fimHora: parseInt(process.env.EXPEDIENTE_FIM || '19', 10),
+};
+// Dias da semana sem atendimento (0=domingo ... 6=sábado), vindos do .env.
+//   FOLGAS=0      -> fecha domingo (padrão)
+//   FOLGAS=0,6    -> fecha domingo e sábado
+//   FOLGAS=       -> (vazio) abre todos os dias (use só em testes)
+const FOLGAS = (process.env.FOLGAS ?? '0')
+  .split(',')
+  .map((s) => parseInt(s.trim(), 10))
+  .filter((n) => !Number.isNaN(n));
 // Janela máxima de agendamento (dias à frente)
 const JANELA_DIAS = parseInt(process.env.JANELA_DIAS || '30', 10);
 // Endereço público da landing (para o link de reagendamento). Preencha quando o Tunnel estiver no ar.
