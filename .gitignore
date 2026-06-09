@@ -34,3 +34,8 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# ==========================================
+# Fotos de profissionais (dados de cliente, não código)
+# ==========================================
+public/fotos/

@@ -92,7 +92,7 @@ function inicioHojeSP() {
 
 // ---------- GET /profissionais ----------
 app.get('/profissionais', (req, res) => {
-  const rows = db.prepare('SELECT id, nome FROM profissionais').all();
+  const rows = db.prepare('SELECT id, nome, foto_url FROM profissionais').all();
   res.json(rows);
 });
 

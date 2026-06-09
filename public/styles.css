@@ -1,0 +1,58 @@
+/* styles.css — estilos customizados do agendamento.
+   O grosso do visual vem das classes do Tailwind (CDN) no HTML;
+   aqui ficam só os ajustes que o Tailwind não cobre (animações, textura, etc.). */
+
+body { background-color: #FBF6F0; }
+
+/* textura suave de fundo */
+.grain {
+  background-image: radial-gradient(circle at 20% 20%, rgba(230, 185, 188, .18), transparent 40%),
+                    radial-gradient(circle at 80% 0%, rgba(185, 138, 75, .10), transparent 35%);
+}
+
+.step-enter { animation: fade .45s cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes fade {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.card-pick { transition: all .25s ease; }
+.card-pick:hover { transform: translateY(-3px); }
+
+.spinner {
+  border: 2.5px solid rgba(255, 255, 255, .35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .6; }
+
+::selection { background: #E6B9BC; color: #411825; }
+
+/* ===== Feedback de erro de validação (ao sair de um campo incompleto) ===== */
+
+/* Campo com erro: borda e leve fundo avermelhados. */
+.campo-erro {
+  border-color: #B91C1C !important;       /* vermelho forte */
+  background-color: rgba(185, 28, 28, .04) !important;
+  box-shadow: 0 0 0 2px rgba(185, 28, 28, .15);
+}
+
+/* Mensagem de erro destacada (mais visível que o cinza padrão). */
+.msg-erro {
+  color: #B91C1C;
+  font-weight: 500;
+}
+
+/* Sacudida curta pra chamar atenção. */
+.shake { animation: shake .4s cubic-bezier(.36, .07, .19, .97) both; }
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
