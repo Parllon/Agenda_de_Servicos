@@ -22,6 +22,7 @@ const state = {
   data: null,
   nome: '',
   telefone: '',       // E.164: 55 + DDD + número
+  diasDisponiveis: null, // null=sem serviço/falha (tudo clicável) | 'loading' | Set de dias com vaga
 };
 
 // ===================== HELPERS =====================
@@ -33,6 +34,8 @@ function mostrarPasso(n) {
   for (let i = 1; i <= 5; i++) $(`view-${i}`).classList.toggle('hidden', i !== n);
   $('view-sucesso').classList.add('hidden');
   $('nav-botoes').classList.remove('hidden');
+  // a barra de passos não aparece na tela inicial (passo 1)
+  $('stepsNav').classList.toggle('hidden', n === 1);
 
   // anima a seção visível
   const view = $(`view-${n}`);
@@ -44,6 +47,9 @@ function mostrarPasso(n) {
     const s = +li.dataset.s;
     li.classList.toggle('text-wine', s === n);
     li.classList.toggle('font-semibold', s === n);
+    // passos anteriores são clicáveis (pra voltar); os demais, não
+    li.classList.toggle('cursor-pointer', s < n);
+    li.classList.toggle('hover:text-wine', s < n);
   });
 
   $('btn-voltar').classList.toggle('invisible', n === 1);
@@ -104,7 +110,13 @@ async function carregarProfissionais() {
 
       b.appendChild(circulo);
       b.appendChild(nome);
-      b.onclick = () => { state.profissional = p; selecionar(wrap, b); atualizarAvancar(); };
+      b.onclick = () => {
+        state.profissional = p;
+        state.horario = null; state.diasDisponiveis = null;
+        selecionar(wrap, b);
+        carregarServicos(p.id); // só os serviços DESTA profissional
+        atualizarAvancar();
+      };
       wrap.appendChild(b);
     });
     // auto-seleciona se houver apenas uma
@@ -114,11 +126,18 @@ async function carregarProfissionais() {
   }
 }
 
-async function carregarServicos() {
+async function carregarServicos(profissionalId) {
   const wrap = $('lista-servicos');
+  state.servico = null; // a lista vai mudar conforme a profissional; zera a seleção anterior
+  if (!profissionalId) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `<p class="text-sm text-clay">Carregando serviços…</p>`;
   try {
-    const servs = await (await fetch(`${API}/servicos`)).json();
+    const servs = await (await fetch(`${API}/servicos?profissionalId=${profissionalId}`)).json();
     wrap.innerHTML = '';
+    if (!servs.length) {
+      wrap.innerHTML = `<p class="text-sm text-clay">Nenhum serviço cadastrado para esta profissional.</p>`;
+      return;
+    }
     servs.forEach((s) => {
       const b = document.createElement('button');
       b.className = 'card-pick text-left bg-white/70 border border-blush/50 rounded-2xl px-5 py-4 ' +
@@ -129,7 +148,14 @@ async function carregarServicos() {
           <span class="block text-xs text-clay mt-0.5">${s.duracao_min} min</span>
         </span>
         <span class="font-display text-wine text-lg">${moeda(s.valor)}</span>`;
-      b.onclick = () => { state.servico = s; selecionar(wrap, b); atualizarAvancar(); };
+      b.onclick = () => {
+        state.servico = s; state.horario = null; state.diasDisponiveis = null;
+        selecionar(wrap, b);
+        atualizarAvancar();
+        // avança sozinho pro horário (pequeno respiro pra mostrar o item marcado)
+        clearTimeout(autoAvancoTimer);
+        autoAvancoTimer = setTimeout(avancar, 400);
+      };
       wrap.appendChild(b);
     });
   } catch {
@@ -169,11 +195,10 @@ async function carregarHorarios() {
   }
 }
 
-// realça o item selecionado dentro de um container
+// realça o item selecionado dentro de um container (borda na cor do botão)
 function selecionar(container, el) {
-  [...container.children].forEach((c) =>
-    c.classList.remove('border-wine', 'bg-blush/30', 'ring-2', 'ring-wine'));
-  el.classList.add('border-wine', 'ring-2', 'ring-wine');
+  [...container.children].forEach((c) => c.classList.remove('card-sel'));
+  el.classList.add('card-sel');
 }
 
 // Aplica (ou remove) o feedback visual de erro num campo + sua mensagem.
@@ -201,8 +226,8 @@ function validarNome() {
 
 function validarTelefone() {
   const dig = state.telefone; // só dígitos (sem o 55)
-  if (dig.length < 11 || dig.length > 11)
-    return { ok: false, msg: 'Telefone incompleto.' };
+  if (dig.length !== 11)
+    return { ok: false, msg: 'Telefone incompleto (precisa ter 11 dígitos).' };
   const ddd = parseInt(dig.slice(0, 2), 10);
   if (!DDDS.has(ddd)) return { ok: false, msg: 'DDD inválido.' };
   if (dig.length === 11 && dig[2] !== '9')
@@ -279,11 +304,17 @@ async function confirmar() {
 }
 
 // ===================== EVENTOS =====================
-$('btn-avancar').onclick = () => {
+// Avança um passo (usado pelo botão "Avançar" e pelo clique direto no serviço).
+let autoAvancoTimer = null;
+function avancar() {
   if (state.passo === 4) montarResumo();
   mostrarPasso(Math.min(state.passo + 1, 5));
-  if (state.passo === 3 && state.data) carregarHorarios(); // refaz se já houver dia escolhido
-};
+  if (state.passo === 3) {
+    carregarDiasDisponiveis();          // apaga no calendário os dias sem vaga p/ o serviço
+    if (state.data) carregarHorarios(); // refaz a grade se já houver dia escolhido
+  }
+}
+$('btn-avancar').onclick = avancar;
 $('btn-voltar').onclick = () => mostrarPasso(Math.max(state.passo - 1, 1));
 $('btn-confirmar').onclick = confirmar;
 
@@ -296,6 +327,27 @@ const ymdLocal = (d) =>
 const calHoje = zerar(new Date());
 const calLimite = zerar(new Date(calHoje.getTime() + JANELA_DIAS * 86400000));
 let calView = new Date(calHoje.getFullYear(), calHoje.getMonth(), 1); // mês exibido
+
+// Busca, para o mês exibido + serviço escolhido, quais DIAS têm horário livre.
+// Enquanto carrega marca 'loading' (dias ficam neutros); ao terminar guarda um
+// Set com os dias disponíveis. Sem profissional/serviço => null (não bloqueia nada).
+async function carregarDiasDisponiveis() {
+  if (!state.profissional || !state.servico) { state.diasDisponiveis = null; renderCalendario(); return; }
+  const ano = calView.getFullYear(), mes = calView.getMonth();
+  const primeiro = ymdLocal(new Date(ano, mes, 1));
+  const ultimo = ymdLocal(new Date(ano, mes + 1, 0));
+  state.diasDisponiveis = 'loading';
+  renderCalendario();
+  try {
+    const url = `${API}/dias-disponiveis?profissionalId=${state.profissional.id}` +
+                `&inicio=${primeiro}&fim=${ultimo}&duracaoMin=${state.servico.duracao_min}`;
+    const r = await (await fetch(url)).json();
+    state.diasDisponiveis = new Set(r.disponiveis || []);
+  } catch {
+    state.diasDisponiveis = null; // falhou: não bloqueia (deixa clicar; o passo de horário avisa)
+  }
+  renderCalendario();
+}
 
 function renderCalendario() {
   const wrap = $('calendario');
@@ -323,13 +375,20 @@ function renderCalendario() {
     <div class="grid grid-cols-7 gap-1">`;
 
   for (let i = 0; i < primeiroDiaSemana; i++) html += `<span></span>`;
+  const carregandoDias = state.diasDisponiveis === 'loading';
   for (let dia = 1; dia <= diasNoMes; dia++) {
     const d = zerar(new Date(ano, mes, dia));
     const iso = ymdLocal(d);
     const fora = d < calHoje || d > calLimite;
     const sel = state.data === iso;
-    if (fora) {
+    // dia sem nenhum horário livre para o serviço escolhido
+    const indisponivel = (state.diasDisponiveis instanceof Set) && !state.diasDisponiveis.has(iso);
+    if (fora || indisponivel) {
+      // transparente e não-clicável (passado, fora da janela, ou sem vaga)
       html += `<span class="py-2 text-center text-sm text-clay/25">${dia}</span>`;
+    } else if (carregandoDias) {
+      // enquanto verifica a disponibilidade do mês: neutro e não-clicável
+      html += `<span class="py-2 text-center text-sm text-clay/40">${dia}</span>`;
     } else {
       html += `<button data-dia="${iso}"
         class="cal-dia py-2 rounded-lg text-sm transition-colors
@@ -340,8 +399,8 @@ function renderCalendario() {
   wrap.innerHTML = html;
 
   const prev = $('cal-prev'), next = $('cal-next');
-  if (prev) prev.onclick = () => { calView = new Date(ano, mes - 1, 1); renderCalendario(); };
-  if (next) next.onclick = () => { calView = new Date(ano, mes + 1, 1); renderCalendario(); };
+  if (prev) prev.onclick = () => { calView = new Date(ano, mes - 1, 1); carregarDiasDisponiveis(); };
+  if (next) next.onclick = () => { calView = new Date(ano, mes + 1, 1); carregarDiasDisponiveis(); };
   wrap.querySelectorAll('.cal-dia').forEach((b) => {
     b.onclick = () => { state.data = b.dataset.dia; renderCalendario(); carregarHorarios(); };
   });
@@ -385,8 +444,18 @@ inputTel.onblur = () => {
   }
 };
 
+// ===================== NAVEGAÇÃO PELAS ABAS (indicador de passos) =====================
+// Permite VOLTAR clicando numa aba anterior. Avançar continua só pelo botão
+// (que valida cada passo). Como trocar profissional/serviço limpa o horário,
+// ao voltar e mudar algo, o passo de horário é refeito antes de seguir.
+document.querySelectorAll('#steps li').forEach((li) => {
+  li.addEventListener('click', () => {
+    const alvo = +li.dataset.s;
+    if (alvo < state.passo) mostrarPasso(alvo); // só volta; nunca pula pra frente
+  });
+});
+
 // ===================== INIT =====================
-carregarProfissionais();
-carregarServicos();
+carregarProfissionais(); // ao escolher a profissional, os serviços dela são carregados
 renderCalendario();
 mostrarPasso(1);

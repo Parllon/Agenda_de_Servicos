@@ -54,4 +54,11 @@ if (!colProf.includes('foto_url')) {
   db.exec('ALTER TABLE profissionais ADD COLUMN foto_url TEXT');
 }
 
+// Migração segura: vínculo serviço -> profissional (Opção B: cada serviço pertence
+// a UMA profissional). Bancos antigos tinham 'servicos' como lista global.
+const colServ = db.prepare('PRAGMA table_info(servicos)').all().map((c) => c.name);
+if (!colServ.includes('profissional_id')) {
+  db.exec('ALTER TABLE servicos ADD COLUMN profissional_id INTEGER');
+}
+
 module.exports = db;

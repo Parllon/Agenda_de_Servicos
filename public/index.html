@@ -42,9 +42,9 @@
     <div class="mx-auto mt-4 w-16 h-px bg-gold/60"></div>
   </header>
 
-  <!-- Indicador de passos -->
-  <nav class="max-w-xl mx-auto px-6 mb-8">
-    <ol id="steps" class="flex items-center justify-between text-[11px] uppercase tracking-widest text-clay/70">
+  <!-- Indicador de passos (escondido na tela inicial — ver mostrarPasso em app.js) -->
+  <nav id="stepsNav" class="max-w-xl mx-auto px-6 mb-8">
+    <ol id="steps" class="flex items-center justify-between gap-1 text-[9px] sm:text-[11px] uppercase tracking-wide sm:tracking-widest text-clay/70 leading-tight">
       <li data-s="1" class="flex-1 text-center">Profissional</li>
       <li data-s="2" class="flex-1 text-center">Serviço</li>
       <li data-s="3" class="flex-1 text-center">Horário</li>
@@ -134,7 +134,7 @@
   </main>
 
   <footer class="text-center pb-10 text-[11px] tracking-widest uppercase text-clay/60">
-    Ateliê Patrícia Lima · Rio de Janeiro
+    Bya Marcondes · Rio de Janeiro
   </footer>
 
   <!-- Lógica do agendamento (separada em app.js). 'defer' garante que roda após o HTML montar. -->

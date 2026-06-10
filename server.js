@@ -71,6 +71,10 @@ const EXPEDIENTE = {
   inicioHora: parseInt(process.env.EXPEDIENTE_INICIO || '9', 10),
   fimHora: parseInt(process.env.EXPEDIENTE_FIM || '19', 10),
 };
+// Passo da grade de horários (minutos). De quanto em quanto tempo um serviço
+// pode COMEÇAR (9:00, 9:30, 10:00...). É independente da duração do serviço.
+//   SLOT_STEP_MIN=30 (padrão) -> inícios de meia em meia hora
+const SLOT_STEP_MIN = parseInt(process.env.SLOT_STEP_MIN || '30', 10);
 // Dias da semana sem atendimento (0=domingo ... 6=sábado), vindos do .env.
 //   FOLGAS=0      -> fecha domingo (padrão)
 //   FOLGAS=0,6    -> fecha domingo e sábado
@@ -90,6 +94,35 @@ function inicioHojeSP() {
   return new Date(`${hojeStr}T00:00:00${OFFSET}`);
 }
 
+// Gera os horários livres de UM dia, dado o serviço (duração), os blocos
+// ocupados e o instante atual. Reaproveitada por /horarios-disponiveis e
+// /dias-disponiveis (assim a regra de disponibilidade fica num único lugar).
+function gerarSlotsDoDia(dataISO, duracao, ocupados, agora) {
+  const slots = [];
+  const cursor = new Date(`${dataISO}T${hh(EXPEDIENTE.inicioHora)}:00:00${OFFSET}`);
+  const limite = new Date(`${dataISO}T${hh(EXPEDIENTE.fimHora)}:00:00${OFFSET}`);
+  while (cursor < limite) {
+    const slotInicio = new Date(cursor);
+    const slotFim = new Date(cursor.getTime() + duracao * 60000);
+    if (slotFim <= limite) {
+      const colide = ocupados.some((b) =>
+        slotInicio < new Date(b.end) && slotFim > new Date(b.start));
+      const noPassado = slotInicio <= agora;
+      if (!colide && !noPassado) {
+        slots.push({
+          inicio: slotInicio.toISOString(),
+          fim: slotFim.toISOString(),
+          label: slotInicio.toLocaleTimeString('pt-BR', {
+            hour: '2-digit', minute: '2-digit', timeZone: TZ,
+          }),
+        });
+      }
+    }
+    cursor.setMinutes(cursor.getMinutes() + SLOT_STEP_MIN);
+  }
+  return slots;
+}
+
 // ---------- GET /profissionais ----------
 app.get('/profissionais', (req, res) => {
   const rows = db.prepare('SELECT id, nome, foto_url FROM profissionais').all();
@@ -97,10 +130,13 @@ app.get('/profissionais', (req, res) => {
 });
 
 // ---------- GET /servicos ----------
+// Com ?profissionalId=, devolve só os serviços daquela profissional (Opção B).
+// Sem o parâmetro, devolve todos (compatibilidade / uso administrativo futuro).
 app.get('/servicos', (req, res) => {
-  const rows = db
-    .prepare('SELECT id, nome, duracao_min, valor FROM servicos')
-    .all();
+  const { profissionalId } = req.query;
+  const rows = profissionalId
+    ? db.prepare('SELECT id, nome, duracao_min, valor FROM servicos WHERE profissional_id = ? ORDER BY id').all(profissionalId)
+    : db.prepare('SELECT id, nome, duracao_min, valor FROM servicos ORDER BY id').all();
   res.json(rows);
 });
 
@@ -145,37 +181,73 @@ app.get('/horarios-disponiveis', async (req, res) => {
     });
     const ocupados = fb.data.calendars[prof.calendar_id].busy || [];
 
-    const slots = [];
-    const cursor = new Date(`${data}T${hh(EXPEDIENTE.inicioHora)}:00:00${OFFSET}`);
-    const limite = new Date(`${data}T${hh(EXPEDIENTE.fimHora)}:00:00${OFFSET}`);
     const agora = new Date();
-
-    while (cursor < limite) {
-      const slotInicio = new Date(cursor);
-      const slotFim = new Date(cursor.getTime() + duracao * 60000);
-      if (slotFim <= limite) {
-        const colide = ocupados.some((b) => {
-          const bIni = new Date(b.start);
-          const bFim = new Date(b.end);
-          return slotInicio < bFim && slotFim > bIni;
-        });
-        const noPassado = slotInicio <= agora;
-        if (!colide && !noPassado) {
-          slots.push({
-            inicio: slotInicio.toISOString(),
-            fim: slotFim.toISOString(),
-            label: slotInicio.toLocaleTimeString('pt-BR', {
-              hour: '2-digit', minute: '2-digit', timeZone: TZ,
-            }),
-          });
-        }
-      }
-      cursor.setMinutes(cursor.getMinutes() + duracao);
-    }
+    const slots = gerarSlotsDoDia(data, duracao, ocupados, agora);
 
     res.json({ data, horarios: slots });
   } catch (err) {
     console.error('[horarios-disponiveis]', err.message);
+    res.status(500).json({ erro: 'Falha ao consultar disponibilidade' });
+  }
+});
+
+// ---------- GET /dias-disponiveis ----------
+// Retorna os DIAS do intervalo [inicio, fim] que têm ao menos 1 horário livre
+// para o serviço informado — para o calendário "apagar" os dias sem vaga.
+// Faz UMA única consulta freeBusy para o período inteiro (não uma por dia) e
+// reaproveita a mesma lógica de geração de slots.
+// query: ?profissionalId=1&inicio=2026-06-01&fim=2026-06-30&duracaoMin=210
+app.get('/dias-disponiveis', async (req, res) => {
+  try {
+    const { profissionalId, inicio, fim, duracaoMin = 40 } = req.query;
+    if (!profissionalId || !inicio || !fim) {
+      return res.status(400).json({ erro: 'profissionalId, inicio e fim são obrigatórios' });
+    }
+
+    const prof = db.prepare('SELECT * FROM profissionais WHERE id = ?').get(profissionalId);
+    if (!prof) return res.status(404).json({ erro: 'Profissional não encontrado' });
+
+    const duracao = parseInt(duracaoMin, 10);
+    const agora = new Date();
+
+    // Limita o intervalo pedido à janela permitida [hoje, hoje + JANELA_DIAS]
+    const inicioHoje = inicioHojeSP();
+    const limiteJanela = new Date(inicioHoje.getTime() + JANELA_DIAS * 86400000);
+    let ini = new Date(`${inicio}T00:00:00${OFFSET}`);
+    let fimD = new Date(`${fim}T00:00:00${OFFSET}`);
+    if (ini < inicioHoje) ini = new Date(inicioHoje);
+    if (fimD > limiteJanela) fimD = new Date(limiteJanela);
+    if (fimD < ini) return res.json({ disponiveis: [] });
+
+    // Uma só consulta freeBusy cobrindo o período inteiro
+    const calendar = getCalendarClient(prof.subject_email);
+    const fb = await calendar.freebusy.query({
+      requestBody: {
+        timeMin: ini.toISOString(),
+        timeMax: new Date(fimD.getTime() + 86400000).toISOString(), // +1 dia: cobre o último dia inteiro
+        timeZone: TZ,
+        items: [{ id: prof.calendar_id }],
+      },
+    });
+    const ocupados = fb.data.calendars[prof.calendar_id].busy || [];
+
+    // Varre dia a dia (Brasil sem horário de verão → passos exatos de 24h),
+    // pula folgas e marca os dias com ao menos 1 slot livre.
+    const disponiveis = [];
+    let d = new Date(ini.getTime());
+    while (d <= fimD) {
+      const iso = d.toLocaleDateString('en-CA', { timeZone: TZ }); // YYYY-MM-DD em SP
+      const diaSemana = new Date(`${iso}T12:00:00${OFFSET}`).getUTCDay();
+      if (!FOLGAS.includes(diaSemana)) {
+        const slots = gerarSlotsDoDia(iso, duracao, ocupados, agora);
+        if (slots.length > 0) disponiveis.push(iso);
+      }
+      d = new Date(d.getTime() + 86400000);
+    }
+
+    res.json({ disponiveis });
+  } catch (err) {
+    console.error('[dias-disponiveis]', err.message);
     res.status(500).json({ erro: 'Falha ao consultar disponibilidade' });
   }
 });
