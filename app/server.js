@@ -42,15 +42,27 @@ app.use(
 
 app.use(express.json({ limit: '10kb' })); // corpo pequeno; agendamento não precisa de mais
 
-// --- Tema + identidade do negócio (configuráveis por .env) ---
-// TEMA escolhe o visual (manicure | barbearia). Os dados do negócio (nome, etc.)
-// vêm do .env, então o MESMO código atende vários clientes só trocando o .env.
+// --- Tema + identidade do negócio ---
+// TEMA (visual) vem do .env. A identidade (nome/subtítulo/cidade) vem do dados.json
+// — a MESMA ficha que o seed.js usa. Assim cada cliente tem um arquivo só de config.
 const TEMA = TEMAS[process.env.TEMA] ? process.env.TEMA : 'manicure';
 const tema = TEMAS[TEMA];
+
+let negocioJson = {};
+try {
+  const cam = process.env.CAMINHO_DADOS_JSON;
+  if (cam && fs.existsSync(cam)) {
+    negocioJson = JSON.parse(fs.readFileSync(cam, 'utf8')).negocio || {};
+  }
+} catch (e) {
+  console.error('Aviso: não consegui ler a identidade do dados.json:', e.message);
+}
+
+// Precedência: dados.json -> .env (override opcional) -> padrão.
 const NEGOCIO = {
-  nome: process.env.NEGOCIO_NOME || 'Bya Marcondes',
-  subtitulo: process.env.NEGOCIO_SUBTITULO || 'Nail Designer',
-  cidade: process.env.NEGOCIO_CIDADE || 'Rio de Janeiro',
+  nome: negocioJson.nome || process.env.NEGOCIO_NOME || 'Bya Marcondes',
+  subtitulo: negocioJson.subtitulo || process.env.NEGOCIO_SUBTITULO || 'Nail Designer',
+  cidade: negocioJson.cidade || process.env.NEGOCIO_CIDADE || 'Rio de Janeiro',
 };
 
 // Lê o index.html uma vez e injeta o tema (cores/fontes) + textos do negócio.

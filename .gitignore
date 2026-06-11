@@ -1,17 +1,31 @@
 # ==========================================
 # Credenciais e Segredos (CRÍTICO - NUNCA SUBIR)
+# Pega .env em qualquer pasta (clientes/*/.env, Evolution_Global/.env) e variantes.
 # ==========================================
 .env
-.env.production
-.env.barbearia
+.env.*
 credentials.json
+# Exceção: o MOLDE do template é versionado (só tem placeholders, sem segredo real).
+!clientes/_template/.env
 
 # ==========================================
-# Banco de Dados Local (SQLite)
+# Banco de Dados Local (SQLite) — em qualquer cliente
 # ==========================================
+banco_dados/
 *.db
 *.db-journal
 *.db-wal
+*.db-shm
+
+# ==========================================
+# Fotos de profissionais (dados de cliente, não código) — em qualquer pasta
+# ==========================================
+fotos/
+
+# ==========================================
+# Pasta do modelo antigo (histórico + segredos antigos) — não versionar
+# ==========================================
+Arquivos_antigos/
 
 # ==========================================
 # Dependências do Node.js
@@ -23,20 +37,15 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # ==========================================
-# Arquivos de Configuração do Docker Local
+# Configuração do Docker Local
 # ==========================================
 .docker/
 /DATA/.docker/
 
 # ==========================================
-# Sistema Operacional e Editores de Código
+# Sistema Operacional e Editores
 # ==========================================
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-
-# ==========================================
-# Fotos de profissionais (dados de cliente, não código)
-# ==========================================
-public/fotos/

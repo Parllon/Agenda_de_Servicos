@@ -1,0 +1,36 @@
+{
+  "negocio": {
+    "nome": "Navalha de Ouro",
+    "subtitulo": "Barbearia",
+    "cidade": "Rio de Janeiro",
+    "telefone": "5521000000000"
+  },
+  "profissionais": [
+    {
+      "id": 1,
+      "nome": "Rafael",
+      "calendar_id": "ddb5042a0f757b08ee4261ff3413ffe60d93be95e830c05826e52a219736fe10@group.calendar.google.com",
+      "subject_email": null,
+      "foto_url": "",
+      "servicos": [
+        { "nome": "Corte", "duracao_min": 30, "valor": 40.0 },
+        { "nome": "Barba", "duracao_min": 30, "valor": 35.0 },
+        { "nome": "Corte + Barba", "duracao_min": 60, "valor": 70.0 },
+        { "nome": "Pezinho (acabamento)", "duracao_min": 15, "valor": 20.0 }
+      ]
+    },
+    {
+      "id": 2,
+      "nome": "Diego",
+      "calendar_id": "7a8561fb7398017602d4529248bb2c0b3ed210ec342a2548e9aa3b2d0137aec2@group.calendar.google.com",
+      "subject_email": null,
+      "foto_url": "",
+      "servicos": [
+        { "nome": "Corte Degradê", "duracao_min": 45, "valor": 50.0 },
+        { "nome": "Barboterapia", "duracao_min": 45, "valor": 45.0 },
+        { "nome": "Sobrancelha", "duracao_min": 15, "valor": 15.0 },
+        { "nome": "Platinado / Descoloração", "duracao_min": 120, "valor": 160.0 }
+      ]
+    }
+  ]
+}

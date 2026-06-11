@@ -1,0 +1,6 @@
+# Fim de linha LF (Linux) nos arquivos que rodam no Zima, mesmo editando no Windows.
+# Sem isto, um .sh salvo com CRLF quebra no Linux ("bad interpreter").
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
