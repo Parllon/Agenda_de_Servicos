@@ -5,10 +5,12 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const fs = require('fs');
 const db = require('./db');
 const { getCalendarClient } = require('./google');
 const { enviarWhatsapp } = require('./whatsapp');
 const { montarMensagem } = require('./mensagens');
+const { TEMAS, cssVars } = require('./temas');
 
 const app = express();
 
@@ -39,7 +41,41 @@ app.use(
 );
 
 app.use(express.json({ limit: '10kb' })); // corpo pequeno; agendamento não precisa de mais
-app.use(express.static(path.join(__dirname, 'public'))); // serve index.html
+
+// --- Tema + identidade do negócio (configuráveis por .env) ---
+// TEMA escolhe o visual (manicure | barbearia). Os dados do negócio (nome, etc.)
+// vêm do .env, então o MESMO código atende vários clientes só trocando o .env.
+const TEMA = TEMAS[process.env.TEMA] ? process.env.TEMA : 'manicure';
+const tema = TEMAS[TEMA];
+const NEGOCIO = {
+  nome: process.env.NEGOCIO_NOME || 'Bya Marcondes',
+  subtitulo: process.env.NEGOCIO_SUBTITULO || 'Nail Designer',
+  cidade: process.env.NEGOCIO_CIDADE || 'Rio de Janeiro',
+};
+
+// Lê o index.html uma vez e injeta o tema (cores/fontes) + textos do negócio.
+// Injetar no servidor (em vez de no JS do navegador) evita o "flash" de tema errado.
+const TEMPLATE = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+function paginaInicial() {
+  const head =
+    `<style>:root{${cssVars(tema)}}</style>` +
+    `<link rel="stylesheet" href="${tema.fonteUrl}">` +
+    `<script>window.__CFG=${JSON.stringify(tema.rotulos)};</script>`;
+  return TEMPLATE
+    .replace('<!--TEMA-->', head)
+    .split('{{NOME}}').join(NEGOCIO.nome)
+    .split('{{SUBTITULO}}').join(NEGOCIO.subtitulo)
+    .split('{{CIDADE}}').join(NEGOCIO.cidade)
+    .split('{{T_STEP_PROF}}').join(tema.rotulos.stepProfissional)
+    .split('{{T_TITULO_PROF}}').join(tema.rotulos.tituloProfissional)
+    .split('{{T_SUB_PROF}}').join(tema.rotulos.subProfissional)
+    .split('{{T_SUB_SERV}}').join(tema.rotulos.subServico);
+}
+
+// A página inicial passa pela rota (p/ tematizar); os demais estáticos (app.js,
+// styles.css, fotos) seguem pelo static. index:false para o static não servir o '/'.
+app.get('/', (_req, res) => res.type('html').send(paginaInicial()));
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // --- Rate limit ---
 // Geral: protege toda a API contra abuso de volume.

@@ -135,12 +135,12 @@ async function carregarServicos(profissionalId) {
     const servs = await (await fetch(`${API}/servicos?profissionalId=${profissionalId}`)).json();
     wrap.innerHTML = '';
     if (!servs.length) {
-      wrap.innerHTML = `<p class="text-sm text-clay">Nenhum serviço cadastrado para esta profissional.</p>`;
+      wrap.innerHTML = `<p class="text-sm text-clay">Nenhum serviço cadastrado.</p>`;
       return;
     }
     servs.forEach((s) => {
       const b = document.createElement('button');
-      b.className = 'card-pick text-left bg-white/70 border border-blush/50 rounded-2xl px-5 py-4 ' +
+      b.className = 'card-pick text-left bg-card/70 border border-blush/50 rounded-2xl px-5 py-4 ' +
                     'hover:border-wine flex items-center justify-between';
       b.innerHTML = `
         <span>
@@ -154,7 +154,7 @@ async function carregarServicos(profissionalId) {
         atualizarAvancar();
         // avança sozinho pro horário (pequeno respiro pra mostrar o item marcado)
         clearTimeout(autoAvancoTimer);
-        autoAvancoTimer = setTimeout(avancar, 400);
+        autoAvancoTimer = setTimeout(avancar, 200);
       };
       wrap.appendChild(b);
     });
@@ -184,7 +184,7 @@ async function carregarHorarios() {
     }
     r.horarios.forEach((h) => {
       const b = document.createElement('button');
-      b.className = 'card-pick bg-white/70 border border-blush/50 rounded-xl py-2.5 ' +
+      b.className = 'card-pick bg-card/70 border border-blush/50 rounded-xl py-2.5 ' +
                     'text-sm text-wineDark hover:border-wine';
       b.textContent = h.label;
       b.onclick = () => { state.horario = h; selecionar(grade, b); atualizarAvancar(); };
@@ -250,7 +250,7 @@ function montarResumo() {
     weekday: 'long', day: '2-digit', month: 'long',
   });
   $('resumo').innerHTML = `
-    <div class="flex justify-between"><span class="text-clay">Profissional</span><span class="font-medium">${state.profissional.nome}</span></div>
+    <div class="flex justify-between"><span class="text-clay">${(window.__CFG && window.__CFG.labelProfissional) || 'Profissional'}</span><span class="font-medium">${state.profissional.nome}</span></div>
     <div class="flex justify-between"><span class="text-clay">Serviço</span><span class="font-medium">${state.servico.nome}</span></div>
     <div class="flex justify-between"><span class="text-clay">Data</span><span class="font-medium capitalize">${dataFmt}</span></div>
     <div class="flex justify-between"><span class="text-clay">Horário</span><span class="font-medium">${state.horario.label}</span></div>

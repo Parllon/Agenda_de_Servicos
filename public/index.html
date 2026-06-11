@@ -3,28 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bya Marcondes · Agendamento</title>
+  <title>{{NOME}} · Agendamento</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <!-- Config do Tailwind: precisa rodar ANTES da página montar, por isso fica inline. -->
+  <!-- Config do Tailwind: as cores apontam p/ variáveis CSS, então trocar de tema é só
+       trocar os valores das variáveis. O formato rgb(var() / <alpha-value>) mantém os
+       modificadores de opacidade do Tailwind (ex.: bg-blush/40) funcionando. -->
   <script>
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: {
-            display: ['Fraunces', 'serif'],
-            body: ['Jost', 'sans-serif'],
+            display: ['var(--f-display)'],
+            body: ['var(--f-body)'],
           },
           colors: {
-            ivory: '#FBF6F0',
-            wine: '#5C2330',
-            wineDark: '#411825',
-            blush: '#E6B9BC',
-            blushSoft: '#F3DEDF',
-            clay: '#C98A8E',
-            gold: '#B98A4B',
+            ivory:     'rgb(var(--c-ivory) / <alpha-value>)',
+            wine:      'rgb(var(--c-wine) / <alpha-value>)',
+            wineDark:  'rgb(var(--c-wineDark) / <alpha-value>)',
+            blush:     'rgb(var(--c-blush) / <alpha-value>)',
+            blushSoft: 'rgb(var(--c-blushSoft) / <alpha-value>)',
+            clay:      'rgb(var(--c-clay) / <alpha-value>)',
+            gold:      'rgb(var(--c-gold) / <alpha-value>)',
+            card:      'rgb(var(--c-card) / <alpha-value>)',
           },
         },
       },
@@ -32,20 +34,23 @@
   </script>
   <!-- Estilos customizados (separados em styles.css) -->
   <link rel="stylesheet" href="styles.css">
+  <!-- Tema (cores/fontes/fonte do Google) injetado pelo servidor conforme o .env.
+       Fica por ÚLTIMO no <head> de propósito: sobrescreve os padrões do styles.css. -->
+  <!--TEMA-->
 </head>
 <body class="font-body text-wineDark grain min-h-screen">
 
   <!-- Cabeçalho -->
   <header class="text-center pt-12 pb-6 px-6">
-    <p class="font-body tracking-[.35em] text-[11px] uppercase text-clay mb-3">Nail Designer</p>
-    <h1 class="font-display text-4xl sm:text-5xl text-wine font-light italic">Bya&nbsp;Marcondes</h1>
+    <p class="font-body tracking-[.35em] text-[11px] uppercase text-clay mb-3">{{SUBTITULO}}</p>
+    <h1 class="font-display text-4xl sm:text-5xl text-wine font-light italic">{{NOME}}</h1>
     <div class="mx-auto mt-4 w-16 h-px bg-gold/60"></div>
   </header>
 
   <!-- Indicador de passos (escondido na tela inicial — ver mostrarPasso em app.js) -->
   <nav id="stepsNav" class="max-w-xl mx-auto px-6 mb-8">
     <ol id="steps" class="flex items-center justify-between gap-1 text-[9px] sm:text-[11px] uppercase tracking-wide sm:tracking-widest text-clay/70 leading-tight">
-      <li data-s="1" class="flex-1 text-center">Profissional</li>
+      <li data-s="1" class="flex-1 text-center">{{T_STEP_PROF}}</li>
       <li data-s="2" class="flex-1 text-center">Serviço</li>
       <li data-s="3" class="flex-1 text-center">Horário</li>
       <li data-s="4" class="flex-1 text-center">Dados</li>
@@ -60,15 +65,15 @@
 
     <!-- PASSO 1 — Profissional -->
     <section id="view-1" class="step-enter">
-      <h2 class="font-display text-2xl text-wine mb-1">Escolha a profissional</h2>
-      <p class="text-sm text-clay mb-6">Quem cuidará de você hoje?</p>
+      <h2 class="font-display text-2xl text-wine mb-1">{{T_TITULO_PROF}}</h2>
+      <p class="text-sm text-clay mb-6">{{T_SUB_PROF}}</p>
       <div id="lista-profissionais" class="flex flex-wrap justify-center gap-4"></div>
     </section>
 
     <!-- PASSO 2 — Serviço -->
     <section id="view-2" class="hidden">
       <h2 class="font-display text-2xl text-wine mb-1">Escolha o serviço</h2>
-      <p class="text-sm text-clay mb-6">Selecione o cuidado desejado.</p>
+      <p class="text-sm text-clay mb-6">{{T_SUB_SERV}}</p>
       <div id="lista-servicos" class="grid gap-3"></div>
     </section>
 
@@ -76,7 +81,7 @@
     <section id="view-3" class="hidden">
       <h2 class="font-display text-2xl text-wine mb-1">Escolha o horário</h2>
       <p class="text-sm text-clay mb-6">Apenas horários livres são exibidos.</p>
-      <div id="calendario" class="bg-white/70 border border-blush/60 rounded-2xl p-4 mb-6 select-none"></div>
+      <div id="calendario" class="bg-card/70 border border-blush/60 rounded-2xl p-4 mb-6 select-none"></div>
       <div id="grade-horarios" class="grid grid-cols-3 sm:grid-cols-4 gap-2.5"></div>
       <p id="horarios-msg" class="text-sm text-clay mt-4 hidden"></p>
     </section>
@@ -88,13 +93,13 @@
 
       <label class="block text-xs uppercase tracking-widest text-clay mb-2">Nome completo</label>
       <input id="input-nome" type="text" placeholder="Ex.: Maria Souza"
-        class="w-full bg-white/70 border border-blush/60 rounded-xl px-4 py-3 mb-1
+        class="w-full bg-card/70 border border-blush/60 rounded-xl px-4 py-3 mb-1
                focus:outline-none focus:ring-2 focus:ring-blush" />
       <p id="erro-nome" class="text-xs text-wine h-4 mb-3"></p>
 
       <label class="block text-xs uppercase tracking-widest text-clay mb-2">WhatsApp</label>
       <input id="input-telefone" type="tel" inputmode="numeric" placeholder="(21) 99999-9999"
-        class="w-full bg-white/70 border border-blush/60 rounded-xl px-4 py-3 mb-1
+        class="w-full bg-card/70 border border-blush/60 rounded-xl px-4 py-3 mb-1
                focus:outline-none focus:ring-2 focus:ring-blush" />
       <p id="erro-telefone" class="text-xs text-wine h-4 mb-3"></p>
     </section>
@@ -103,7 +108,7 @@
     <section id="view-5" class="hidden">
       <h2 class="font-display text-2xl text-wine mb-1">Revise e confirme</h2>
       <p class="text-sm text-clay mb-6">Está tudo certo?</p>
-      <div id="resumo" class="bg-white/70 border border-blush/50 rounded-2xl p-6 space-y-3 text-sm"></div>
+      <div id="resumo" class="bg-card/70 border border-blush/50 rounded-2xl p-6 space-y-3 text-sm"></div>
       <button id="btn-confirmar"
         class="mt-6 w-full bg-wine hover:bg-wineDark text-ivory rounded-xl py-4
                font-medium tracking-wide flex items-center justify-center gap-3 transition-colors">
@@ -116,7 +121,7 @@
     <!-- SUCESSO -->
     <section id="view-sucesso" class="hidden text-center py-10">
       <div class="mx-auto w-16 h-16 rounded-full bg-blush/40 flex items-center justify-center mb-5">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5C2330" stroke-width="2"
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" class="stroke-wine" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
       </div>
       <h2 class="font-display text-3xl text-wine mb-2">Agendamento confirmado!</h2>
@@ -134,7 +139,7 @@
   </main>
 
   <footer class="text-center pb-10 text-[11px] tracking-widest uppercase text-clay/60">
-    Bya Marcondes · Rio de Janeiro
+    {{NOME}} · {{CIDADE}}
   </footer>
 
   <!-- Lógica do agendamento (separada em app.js). 'defer' garante que roda após o HTML montar. -->

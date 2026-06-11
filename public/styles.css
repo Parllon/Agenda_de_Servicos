@@ -2,12 +2,28 @@
    O grosso do visual vem das classes do Tailwind (CDN) no HTML;
    aqui ficam só os ajustes que o Tailwind não cobre (animações, textura, etc.). */
 
-body { background-color: #FBF6F0; }
+/* Variáveis do tema (valores PADRÃO = manicure). O servidor injeta um bloco
+   parecido no <head> conforme o .env (TEMA=barbearia), sobrescrevendo estes.
+   Cores em canais RGB ("R G B") p/ permitir transparência via rgb(var() / a). */
+:root {
+  --c-ivory: 251 246 240;
+  --c-wine: 92 35 48;
+  --c-wineDark: 65 24 37;
+  --c-blush: 230 185 188;
+  --c-blushSoft: 243 222 223;
+  --c-clay: 201 138 142;
+  --c-gold: 185 138 75;
+  --c-card: 255 255 255;
+  --f-display: 'Fraunces', serif;
+  --f-body: 'Jost', sans-serif;
+}
+
+body { background-color: rgb(var(--c-ivory)); }
 
 /* textura suave de fundo */
 .grain {
-  background-image: radial-gradient(circle at 20% 20%, rgba(230, 185, 188, .18), transparent 40%),
-                    radial-gradient(circle at 80% 0%, rgba(185, 138, 75, .10), transparent 35%);
+  background-image: radial-gradient(circle at 20% 20%, rgb(var(--c-blush) / .18), transparent 40%),
+                    radial-gradient(circle at 80% 0%, rgb(var(--c-gold) / .10), transparent 35%);
 }
 
 .step-enter { animation: fade .45s cubic-bezier(.22, 1, .36, 1) both; }
@@ -19,10 +35,10 @@ body { background-color: #FBF6F0; }
 .card-pick { transition: all .25s ease; }
 .card-pick:hover { transform: translateY(-3px); }
 
-/* Item selecionado: borda na MESMA cor do botão (wine #5C2330), bem visível. */
+/* Item selecionado: borda na MESMA cor do botão (primária do tema), bem visível. */
 .card-sel {
-  border-color: #5C2330 !important;
-  box-shadow: 0 0 0 2px #5C2330;
+  border-color: rgb(var(--c-wine)) !important;
+  box-shadow: 0 0 0 2px rgb(var(--c-wine));
 }
 
 .spinner {
@@ -37,7 +53,7 @@ body { background-color: #FBF6F0; }
 
 input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .6; }
 
-::selection { background: #E6B9BC; color: #411825; }
+::selection { background: rgb(var(--c-blush)); color: rgb(var(--c-wineDark)); }
 
 /* ===== Feedback de erro de validação (ao sair de um campo incompleto) ===== */
 
