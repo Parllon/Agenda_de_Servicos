@@ -2,8 +2,8 @@
    O grosso do visual vem das classes do Tailwind (CDN) no HTML;
    aqui ficam só os ajustes que o Tailwind não cobre (animações, textura, etc.). */
 
-/* Variáveis do tema (valores PADRÃO = manicure). O servidor injeta um bloco
-   parecido no <head> conforme o .env (TEMA=barbearia), sobrescrevendo estes.
+/* Variáveis do tema (valores PADRÃO = tema_1). O servidor injeta um bloco
+   parecido no <head> conforme o .env (TEMA=tema_2..tema_7), sobrescrevendo estes.
    Cores em canais RGB ("R G B") p/ permitir transparência via rgb(var() / a). */
 :root {
   --c-ivory: 251 246 240;

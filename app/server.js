@@ -11,7 +11,7 @@ const { getCalendarClient } = require('./google');
 const { enviarWhatsapp } = require('./whatsapp');
 const { montarMensagem } = require('./mensagens');
 const { notificar, montarAviso } = require('./telegram');
-const { TEMAS, cssVars } = require('./temas');
+const { TEMAS, PERFIS, cssVars } = require('./temas');
 
 const app = express();
 
@@ -46,8 +46,10 @@ app.use(express.json({ limit: '10kb' })); // corpo pequeno; agendamento não pre
 // --- Tema + identidade do negócio ---
 // TEMA (visual) vem do .env. A identidade (nome/subtítulo/cidade) vem do dados.json
 // — a MESMA ficha que o seed.js usa. Assim cada cliente tem um arquivo só de config.
-const TEMA = TEMAS[process.env.TEMA] ? process.env.TEMA : 'manicure';
+const TEMA = TEMAS[process.env.TEMA] ? process.env.TEMA : 'tema_1';
 const tema = TEMAS[TEMA];
+// Perfil de profissional: independente do tema; fallback para os rótulos do tema.
+const PERFIL = PERFIS[process.env.PERFIL_PROFISSIONAL] || tema.rotulos;
 
 let negocioJson = {};
 try {
@@ -83,10 +85,10 @@ function paginaInicial() {
     .split('{{NOME}}').join(NEGOCIO.nome)
     .split('{{SUBTITULO}}').join(NEGOCIO.subtitulo)
     .split('{{CIDADE}}').join(NEGOCIO.cidade)
-    .split('{{T_STEP_PROF}}').join(tema.rotulos.stepProfissional)
-    .split('{{T_TITULO_PROF}}').join(tema.rotulos.tituloProfissional)
-    .split('{{T_SUB_PROF}}').join(tema.rotulos.subProfissional)
-    .split('{{T_SUB_SERV}}').join(tema.rotulos.subServico);
+    .split('{{T_STEP_PROF}}').join(PERFIL.stepProfissional)
+    .split('{{T_TITULO_PROF}}').join(PERFIL.tituloProfissional)
+    .split('{{T_SUB_PROF}}').join(PERFIL.subProfissional)
+    .split('{{T_SUB_SERV}}').join(PERFIL.subServico);
 }
 
 // A página inicial passa pela rota (p/ tematizar); os demais estáticos (app.js,

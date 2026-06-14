@@ -1,7 +1,7 @@
 {
-  "name": "agendamento-manicure",
+  "name": "slotme-motor",
   "version": "1.0.0",
-  "description": "Landing page de agendamento de manicure integrada ao Google Calendar e WhatsApp",
+  "description": "Motor de agendamento multi-nicho integrado ao Google Calendar e WhatsApp",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

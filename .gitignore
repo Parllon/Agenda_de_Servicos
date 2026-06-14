@@ -18,6 +18,13 @@ banco_dados/
 *.db-shm
 
 # ==========================================
+# Dados REAIS de cliente (nomes, agendas, telefones, chat ids, mensagens).
+# Ficam só no servidor, como o .env. O molde (_template) continua versionado.
+# ==========================================
+clientes/*/dados.json
+!clientes/_template/dados.json
+
+# ==========================================
 # Fotos de profissionais (dados de cliente, não código) — em qualquer pasta
 # ==========================================
 fotos/
