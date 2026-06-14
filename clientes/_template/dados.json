@@ -3,8 +3,10 @@
     "nome": "Studio Bella Mãos",
     "subtitulo": "Nail Designer",
     "cidade": "São Paulo",
-    "telefone": "5511988887777"
+    "telefone": "5511988887777",
+    "telegram_chat_id": ""
   },
+  "mensagens": {},
   "profissionais": [
     {
       "id": 1,
@@ -12,11 +14,28 @@
       "calendar_id": "agenda-carol@gmail.com",
       "subject_email": null,
       "foto_url": "/fotos/carol.jpg",
+      "telegram_chat_id": "",
       "servicos": [
-        { "nome": "Manicure", "duracao_min": 60, "valor": 35.0 },
-        { "nome": "Pedicure", "duracao_min": 60, "valor": 40.0 },
-        { "nome": "Manicure + Pedicure", "duracao_min": 120, "valor": 70.0 },
-        { "nome": "Esmaltação em Gel", "duracao_min": 90, "valor": 60.0 }
+        {
+          "nome": "Manicure",
+          "duracao_min": 60,
+          "valor": 35.0
+        },
+        {
+          "nome": "Pedicure",
+          "duracao_min": 60,
+          "valor": 40.0
+        },
+        {
+          "nome": "Manicure + Pedicure",
+          "duracao_min": 120,
+          "valor": 70.0
+        },
+        {
+          "nome": "Esmaltação em Gel",
+          "duracao_min": 90,
+          "valor": 60.0
+        }
       ]
     },
     {
@@ -25,10 +44,23 @@
       "calendar_id": "agenda-aline@gmail.com",
       "subject_email": null,
       "foto_url": "",
+      "telegram_chat_id": "",
       "servicos": [
-        { "nome": "Alongamento em Fibra", "duracao_min": 180, "valor": 150.0 },
-        { "nome": "Manutenção de Alongamento", "duracao_min": 120, "valor": 90.0 },
-        { "nome": "Blindagem", "duracao_min": 60, "valor": 50.0 }
+        {
+          "nome": "Alongamento em Fibra",
+          "duracao_min": 180,
+          "valor": 150.0
+        },
+        {
+          "nome": "Manutenção de Alongamento",
+          "duracao_min": 120,
+          "valor": 90.0
+        },
+        {
+          "nome": "Blindagem",
+          "duracao_min": 60,
+          "valor": 50.0
+        }
       ]
     }
   ]

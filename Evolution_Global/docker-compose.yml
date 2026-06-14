@@ -5,7 +5,7 @@
 # Subir:
 #   docker network create agenda-net        # uma vez por servidor (se ainda não existe)
 #   docker compose up -d
-# Manager (criar/conectar instâncias, ler QR):  http://IP-DO-ZIMA:8080/manager
+# Manager (criar/conectar instâncias, ler QR):  http://192.168.1.100:8080/manager
 
 services:
   evolution-api:

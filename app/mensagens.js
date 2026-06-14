@@ -1,17 +1,31 @@
-// mensagens.js — variações de texto pra cada tipo de mensagem.
-// Por que isso existe: mandar SEMPRE a mesma frase é sinal clássico de bot.
-// Aqui cada tipo tem várias versões; o sistema sorteia uma a cada envio.
+// mensagens.js — textos das mensagens automáticas (WhatsApp).
 //
-// COMO EDITAR: troque/adicione frases nas listas abaixo à vontade.
-// Use as chaves entre {} — elas são trocadas pelos dados reais:
-//   {nome}        -> primeiro nome do cliente
-//   {servico}     -> nome do serviço
-//   {profissional}-> nome do profissional
-//   {data}        -> data (ex.: 04/06/2026)
-//   {hora}        -> horário (ex.: 14:00)
-//   {link}        -> link de reagendamento (LANDING_URL)
+// COMO FUNCIONA (multi-cliente):
+//   - Os textos abaixo (PADRAO) são o "padrão de fábrica" — todo cliente usa, sem
+//     configurar nada.
+//   - Cada cliente pode SOBRESCREVER no seu dados.json, numa seção "mensagens".
+//     Sobrescreve só os tipos que quiser; o resto continua no padrão.
+//   - Mandar SEMPRE a mesma frase é cara de bot, então cada tipo aceita VÁRIAS
+//     versões (uma lista) e o sistema sorteia uma a cada envio.
+//
+// Chaves entre {} são trocadas pelos dados reais:
+//   {nome}         -> primeiro nome do cliente
+//   {servico}      -> nome do serviço
+//   {profissional} -> nome do profissional
+//   {data}         -> data (ex.: 04/06/2026)
+//   {hora}         -> horário (ex.: 14:00)
+//   {link}         -> link de reagendamento (LANDING_URL)
+//
+// FORMATO no dados.json (tudo opcional):
+//   "mensagens": {
+//     "confirmado": "Valeu, {nome}! Te espero. 💈",          // uma frase, OU
+//     "confirmacao": ["Versao 1 ...", "Versao 2 ..."]          // uma lista de frases
+//   }
 
-const VARIACOES = {
+const fs = require('fs');
+
+// ---------- Padrão de fábrica ----------
+const PADRAO = {
   // Enviada no momento do agendamento
   confirmacao: [
     'Oi, {nome}! 💅 Seu horário de {servico} está confirmado para {data} às {hora} com {profissional}. Até lá!',
@@ -56,13 +70,36 @@ const VARIACOES = {
   ],
 };
 
+// ---------- Customizações do cliente (seção "mensagens" do dados.json) ----------
+function carregarCustom() {
+  try {
+    const cam = process.env.CAMINHO_DADOS_JSON;
+    if (cam && fs.existsSync(cam)) {
+      const m = JSON.parse(fs.readFileSync(cam, 'utf8')).mensagens;
+      if (m && typeof m === 'object') return m;
+    }
+  } catch (e) {
+    console.error('[mensagens] customizacoes ignoradas (erro ao ler dados.json):', e.message);
+  }
+  return {};
+}
+
+// Merge por tipo: o cliente sobrescreve só o que definir; o resto fica no padrão.
+// Aceita string (uma frase) ou lista de frases.
+const custom = carregarCustom();
+const VARIACOES = {};
+for (const tipo of Object.keys(PADRAO)) {
+  let c = custom[tipo];
+  if (typeof c === 'string') c = [c];
+  VARIACOES[tipo] = Array.isArray(c) && c.length ? c : PADRAO[tipo];
+}
+
 const randItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 /**
- * Monta uma mensagem sorteando uma das variações e preenchendo os dados.
+ * Monta uma mensagem sorteando uma das variacoes e preenchendo os dados.
  * @param {string} tipo  - confirmacao | vespera | lembrete1h | reagendar | confirmado | cancelado
  * @param {object} dados - { nome, servico, profissional, data, hora, link }
- * @returns {string}
  */
 function montarMensagem(tipo, dados = {}) {
   const lista = VARIACOES[tipo];
@@ -75,4 +112,6 @@ function montarMensagem(tipo, dados = {}) {
   return texto;
 }
 
-module.exports = { montarMensagem, VARIACOES };
+module.exports = { montarMensagem, VARIACOES, PADRAO };
+
+

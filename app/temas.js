@@ -38,7 +38,7 @@ const TEMAS = {
       blush:     '92 78 44',    // dourado escuro p/ bordas e realces sutis
       blushSoft: '46 42 32',    // trilho do progresso
       clay:      '160 150 128', // bege acinzentado (texto secundário)
-      gold:      '198 160 74',  // detalhe dourado
+      gold:      '249 227 30',  // detalhe dourado
       card:      '30 28 24',    // cartões cinza-escuro
     },
     fontes: { display: "'Oswald', sans-serif", body: "'Barlow', sans-serif" },

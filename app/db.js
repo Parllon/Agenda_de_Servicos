@@ -54,6 +54,12 @@ if (!colProf.includes('foto_url')) {
   db.exec('ALTER TABLE profissionais ADD COLUMN foto_url TEXT');
 }
 
+// Migração segura: chat do Telegram da profissional (avisos de agendamento por
+// profissional). NULL = aquela profissional não recebe aviso individual.
+if (!colProf.includes('telegram_chat_id')) {
+  db.exec('ALTER TABLE profissionais ADD COLUMN telegram_chat_id TEXT');
+}
+
 // Migração segura: vínculo serviço -> profissional (Opção B: cada serviço pertence
 // a UMA profissional). Bancos antigos tinham 'servicos' como lista global.
 const colServ = db.prepare('PRAGMA table_info(servicos)').all().map((c) => c.name);

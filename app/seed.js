@@ -37,7 +37,7 @@ if (!profissionais.length) {
 db.exec('DELETE FROM profissionais; DELETE FROM servicos;');
 
 const insProf = db.prepare(
-  'INSERT INTO profissionais (id, nome, calendar_id, subject_email, foto_url) VALUES (?, ?, ?, ?, ?)'
+  'INSERT INTO profissionais (id, nome, calendar_id, subject_email, foto_url, telegram_chat_id) VALUES (?, ?, ?, ?, ?, ?)'
 );
 const insServ = db.prepare(
   'INSERT INTO servicos (nome, duracao_min, valor, profissional_id) VALUES (?, ?, ?, ?)'
@@ -46,7 +46,7 @@ const insServ = db.prepare(
 let totalServ = 0;
 profissionais.forEach((p, i) => {
   const id = p.id || i + 1;
-  insProf.run(id, p.nome, p.calendar_id, p.subject_email || null, p.foto_url || null);
+  insProf.run(id, p.nome, p.calendar_id, p.subject_email || null, p.foto_url || null, p.telegram_chat_id || null);
   (p.servicos || []).forEach((s) => {
     insServ.run(s.nome, s.duracao_min, s.valor, id);
     totalServ++;

@@ -10,6 +10,7 @@ const db = require('./db');
 const { getCalendarClient } = require('./google');
 const { enviarWhatsapp } = require('./whatsapp');
 const { montarMensagem } = require('./mensagens');
+const { notificar, montarAviso } = require('./telegram');
 const { TEMAS, cssVars } = require('./temas');
 
 const app = express();
@@ -64,6 +65,10 @@ const NEGOCIO = {
   subtitulo: negocioJson.subtitulo || process.env.NEGOCIO_SUBTITULO || 'Nail Designer',
   cidade: negocioJson.cidade || process.env.NEGOCIO_CIDADE || 'Rio de Janeiro',
 };
+
+// Chat do Telegram do salão/dona: recebe aviso de TODOS os agendamentos
+// (independente do profissional). Vazio = ninguém recebe o aviso "geral".
+const CHAT_SALAO = negocioJson.telegram_chat_id || process.env.TELEGRAM_CHAT_SALAO || null;
 
 // Lê o index.html uma vez e injeta o tema (cores/fontes) + textos do negócio.
 // Injetar no servidor (em vez de no JS do navegador) evita o "flash" de tema errado.
@@ -379,6 +384,21 @@ app.post('/agendamento', limiteAgendamento, async (req, res) => {
       console.error('[agendamento] envio whatsapp:', e.message)
     );
 
+    // Aviso ao salão/profissional via Telegram (também fire-and-forget).
+    // O profissional recebe os SEUS; o salão (se configurado) recebe TODOS.
+    notificar({
+      chatProfissional: prof.telegram_chat_id,
+      chatSalao: CHAT_SALAO,
+      texto: montarAviso('novo', {
+        cliente: clienteNome,
+        servico: servicoNome,
+        profissional: prof.nome,
+        data: dataFmt,
+        hora: horaFmt,
+        telefone: clienteTelefone,
+      }),
+    });
+
     res.status(201).json({ ok: true, eventId: evento.data.id });
   } catch (err) {
     console.error('[agendamento]', err.message);
@@ -487,6 +507,24 @@ app.post('/webhook-whatsapp', async (req, res) => {
     // Primeiro nome do cliente, pra personalizar as respostas.
     const primeiroNomeCli = (ag.cliente_nome || '').trim().split(/\s+/)[0] || '';
 
+    // Data/hora do agendamento, para os avisos de Telegram ao salão/profissional.
+    const agData = new Date(ag.inicio).toLocaleDateString('pt-BR', { timeZone: TZ });
+    const agHora = new Date(ag.inicio).toLocaleTimeString('pt-BR', {
+      hour: '2-digit', minute: '2-digit', timeZone: TZ,
+    });
+    const avisarSalao = (tipo) =>
+      notificar({
+        chatProfissional: prof.telegram_chat_id,
+        chatSalao: CHAT_SALAO,
+        texto: montarAviso(tipo, {
+          cliente: ag.cliente_nome,
+          servico: ag.servico_nome,
+          profissional: prof.nome,
+          data: agData,
+          hora: agHora,
+        }),
+      });
+
     if (texto === '1') {
       // CONFIRMAR
       db.prepare("UPDATE agendamentos SET status = 'confirmado' WHERE id = ?").run(ag.id);
@@ -496,6 +534,7 @@ app.post('/webhook-whatsapp', async (req, res) => {
       // REAGENDAR: SÓ avisa "liberado" se realmente liberou.
       const ok = await liberarAgenda('cancelado');
       if (ok) {
+        avisarSalao('remarcar');
         await enviarWhatsapp(
           phone,
           montarMensagem('reagendar', { nome: primeiroNomeCli, link: LANDING_URL })
@@ -509,6 +548,7 @@ app.post('/webhook-whatsapp', async (req, res) => {
     } else if (texto === '3') {
       // CANCELAR
       const ok = await liberarAgenda('cancelado');
+      if (ok) avisarSalao('cancelado');
       await enviarWhatsapp(
         phone,
         ok
