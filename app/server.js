@@ -72,6 +72,14 @@ const NEGOCIO = {
 // (independente do profissional). Vazio = ninguém recebe o aviso "geral".
 const CHAT_SALAO = negocioJson.telegram_chat_id || process.env.TELEGRAM_CHAT_SALAO || null;
 
+// Agenda central do salão (Cenário 2): grava uma 2ª cópia do evento aqui, além
+// da agenda da profissional. Ausente/vazio = Cenários 1 e 3 (grava só na agenda
+// da profissional). NÃO usar no Cenário 3 (a dona já vê tudo) — causaria duplicidade.
+const CALENDAR_CENTRAL = negocioJson.calendar_central || process.env.CALENDAR_CENTRAL || null;
+if (CALENDAR_CENTRAL) {
+  console.log('[boot] Cenário 2 ativo — agenda central:', CALENDAR_CENTRAL);
+}
+
 // Lê o index.html uma vez e injeta o tema (cores/fontes) + textos do negócio.
 // Injetar no servidor (em vez de no JS do navegador) evita o "flash" de tema errado.
 const TEMPLATE = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
@@ -343,26 +351,49 @@ app.post('/agendamento', limiteAgendamento, async (req, res) => {
       return res.status(409).json({ erro: 'Esse horário acabou de ser ocupado. Escolha outro.' });
     }
 
+    // Corpo do evento reaproveitado nas duas gravações (profissional + central).
+    const corpoEvento = {
+      summary: `${servicoNome} - ${clienteNome}`,
+      description:
+        `Cliente: ${clienteNome}\n` +
+        `Telefone: ${clienteTelefone}\n` +
+        `Serviço: ${servicoNome}\n` +
+        `Valor: R$ ${Number(valor || 0).toFixed(2)}`,
+      start: { dateTime: inicio, timeZone: TZ },
+      end: { dateTime: fim, timeZone: TZ },
+    };
+
     const evento = await calendar.events.insert({
       calendarId: prof.calendar_id,
-      requestBody: {
-        summary: `${servicoNome} - ${clienteNome}`,
-        description:
-          `Cliente: ${clienteNome}\n` +
-          `Telefone: ${clienteTelefone}\n` +
-          `Serviço: ${servicoNome}\n` +
-          `Valor: R$ ${Number(valor || 0).toFixed(2)}`,
-        start: { dateTime: inicio, timeZone: TZ },
-        end: { dateTime: fim, timeZone: TZ },
-      },
+      requestBody: corpoEvento,
     });
+
+    // Cenário 2 — gravação dupla na agenda central. Awaited só para capturar o
+    // event_id (e poder apagar a cópia no cancelamento), mas um erro aqui SÓ loga:
+    // nunca derruba o agendamento já criado na agenda da profissional.
+    // Guard `!== prof.calendar_id` evita duplicidade quando central == agenda da prof.
+    let eventoCentralId = null;
+    if (CALENDAR_CENTRAL && CALENDAR_CENTRAL !== prof.calendar_id) {
+      try {
+        const evCentral = await calendar.events.insert({
+          calendarId: CALENDAR_CENTRAL,
+          requestBody: corpoEvento,
+        });
+        eventoCentralId = evCentral.data.id;
+      } catch (e) {
+        console.error('[agendamento] falha ao gravar na agenda central (ignorado):', e.message);
+      }
+    }
 
     db.prepare(
       `INSERT INTO agendamentos
-        (google_event_id, profissional_id, servico_nome, cliente_nome,
-         cliente_telefone, inicio, fim)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(evento.data.id, profissionalId, servicoNome, clienteNome, clienteTelefone, inicio, fim);
+        (google_event_id, google_event_id_central, profissional_id, servico_nome,
+         cliente_nome, cliente_telefone, inicio, fim)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      evento.data.id, eventoCentralId, profissionalId, servicoNome,
+      clienteNome, clienteTelefone, inicio, fim
+    );
 
     const dataFmt = new Date(inicio).toLocaleDateString('pt-BR', { timeZone: TZ });
     const horaFmt = new Date(inicio).toLocaleTimeString('pt-BR', {
@@ -490,6 +521,25 @@ app.post('/webhook-whatsapp', async (req, res) => {
         } else {
           console.warn('[webhook] agendamento sem google_event_id; só atualiza o banco');
         }
+
+        // Cenário 2 — apaga também a cópia da agenda central, se houver. Bloco
+        // isolado: uma falha aqui NUNCA impede o cancelamento principal (404/410
+        // = evento já não existe, tratado como sucesso silencioso).
+        if (CALENDAR_CENTRAL && ag.google_event_id_central) {
+          try {
+            await calendar.events.delete({
+              calendarId: CALENDAR_CENTRAL,
+              eventId: ag.google_event_id_central,
+            });
+            console.log('[webhook] cópia removida da agenda central:', ag.google_event_id_central);
+          } catch (e) {
+            const code = e?.code || e?.response?.status;
+            if (code !== 410 && code !== 404) {
+              console.error('[webhook] falha ao apagar cópia da central (ignorado):', e.message);
+            }
+          }
+        }
+
         db.prepare('UPDATE agendamentos SET status = ? WHERE id = ?').run(novoStatus, ag.id);
         console.log(`[webhook] agendamento ${ag.id} marcado como ${novoStatus}`);
         return true;

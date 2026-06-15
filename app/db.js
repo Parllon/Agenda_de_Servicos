@@ -47,6 +47,12 @@ if (!colunas.includes('lembrete_vespera_enviado')) {
   db.exec('ALTER TABLE agendamentos ADD COLUMN lembrete_vespera_enviado INTEGER DEFAULT 0');
 }
 
+// Migração segura: ID do evento na AGENDA CENTRAL do salão (Cenário 2 — gravação
+// dupla). NULL = não houve cópia na central (Cenário 1/3, ou a gravação falhou).
+if (!colunas.includes('google_event_id_central')) {
+  db.exec('ALTER TABLE agendamentos ADD COLUMN google_event_id_central TEXT');
+}
+
 // Migração segura: coluna da foto da profissional (URL ou caminho em /public).
 // Fica NULL/vazio quando não há foto — o frontend cai pra inicial do nome.
 const colProf = db.prepare('PRAGMA table_info(profissionais)').all().map((c) => c.name);

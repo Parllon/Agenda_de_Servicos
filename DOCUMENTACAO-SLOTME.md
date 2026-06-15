@@ -209,7 +209,8 @@ TELEGRAM_BOT_TOKEN=<token do bot>                 # vazio = Telegram desativado
     "subtitulo": "Nail Designer",
     "cidade": "Rio de Janeiro",
     "telefone": "5521999998888",
-    "telegram_chat_id": ""          // recebe TODOS os agendamentos (vazio = desativado)
+    "telegram_chat_id": "",         // recebe TODOS os agendamentos (vazio = desativado)
+    "calendar_central": ""          // Cenário 2: agenda central do salão (vazio = Cenários 1/3). Ver §9.5
   },
   "mensagens": {
     // Sobrescreve só os tipos que quiser; o resto usa o padrão de mensagens.js.
@@ -500,6 +501,21 @@ No Google Calendar do profissional:
 ### 9.4 O que acontece sem a agenda compartilhada
 
 A consulta `freeBusy` de uma agenda não compartilhada retorna "sem eventos" — os horários aparecem todos livres. Na confirmação, a inserção do evento falha. O sintoma é: **horário aparece, agendamento parece confirmar, mas o evento nunca aparece no Calendar**.
+
+### 9.5 Cenários de arquitetura de agendas
+
+O sistema suporta três arranjos. A disponibilidade (`freeBusy`) é **sempre** lida só na agenda da profissional — a agenda central é apenas espelho de escrita.
+
+**Cenário 1 — profissional com conta Google própria (sem agenda central)**
+A profissional usa a própria conta; o `calendar_id` dela é o e-mail dela ou uma agenda secundária. O sistema grava e lê **apenas** na agenda da profissional. `negocio.calendar_central` ausente/vazio.
+
+**Cenário 2 — conta própria + agenda central da dona**
+A dona cria uma agenda separada (ex.: "Salão da Carol"), compartilha com a SA com permissão **"Fazer alterações nos eventos"** (§9.2) e preenche `negocio.calendar_central` com o ID dessa agenda (§9.3). Cada agendamento é gravado em **dois lugares**: na agenda da profissional (como sempre) e na agenda central. A 2ª gravação é resiliente: **uma falha nela não cancela** o agendamento já feito na agenda da profissional (só loga). No cancelamento/reagendamento, a cópia da central também é apagada — por isso o `event_id` da central fica guardado no banco (coluna `agendamentos.google_event_id_central`).
+
+**Cenário 3 — agendas criadas dentro da conta da dona (modelo preferido)**
+A dona cria uma agenda por profissional dentro da própria conta, compartilha cada uma com a profissional (só **visualizar**) e com a SA (**editar**). O `calendar_id` de cada profissional aponta para essas agendas. A dona já vê tudo no próprio Google Calendar — **não usar** `calendar_central` aqui (causaria duplicidade). `negocio.calendar_central` ausente.
+
+> Guard de segurança: o sistema só grava na central se `calendar_central` existir **e** for diferente do `calendar_id` da profissional. O log de boot mostra `[boot] Cenário 2 ativo — agenda central: …` quando o campo está preenchido — útil para flagrar um Cenário 3 configurado por engano.
 
 ---
 
