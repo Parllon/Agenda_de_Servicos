@@ -673,3 +673,70 @@ git add <arquivos>           # preferir arquivos específicos ao invés de -A
 git commit -m "mensagem"
 git push
 ```
+
+---
+
+## 15. Painel Admin (uso interno)
+
+### 15.1 O que é
+
+Um painel web **privado** (`painel/`) para criar e editar clientes por formulário, sem
+abrir o código nem editar `dados.json`/`.env` à mão. Lista os clientes, deixa editar
+tudo (negócio, profissionais, serviços, mensagens, tema, expediente…) e tem um botão
+**Aplicar** que roda `up + seed + restart` (o mesmo que `atualizar-cliente.sh`) com 1 clique.
+
+> **É uma ferramenta de administração com acesso ao Docker do host.** Por isso roda
+> **só na LAN** (`192.168.1.100:8099`), **fora do Cloudflare**, e atrás de senha.
+> Nunca adicione o painel ao `config.yml` do túnel.
+
+### 15.2 Arquitetura
+
+- Serviço separado do motor (o motor só conhece o próprio cliente; o painel precisa ver
+  **todos**). Imagem própria `painel-slotme:v1`, com `docker` CLI + plugin compose dentro
+  (para conseguir aplicar os clientes via socket).
+- Lê/grava direto os arquivos em `clientes/<slug>/dados.json` e `.env`, reaproveitando as
+  mesmas regras de validação do `novo-cliente.sh` (tema/perfil/porta/slug) e a sequência
+  do `atualizar-cliente.sh` (no `painel/lib/aplicar.js`).
+
+**Caminho do projeto (detalhe importante):** o painel monta o projeto no **mesmo caminho
+absoluto do host** (`PROJETO_RAIZ`, ex. `/DATA/Agendamento`). Isso é obrigatório porque o
+`docker compose` dos clientes usa caminhos relativos (`./banco_dados`, `../../app/...`) e
+quem resolve esses volumes é o daemon do host. Path diferente = mounts quebrados.
+
+### 15.3 Subir o painel (primeira vez)
+
+```bash
+cd /DATA/Agendamento/painel       # ajuste se a raiz do projeto for outra
+
+# 1) configurar segredos
+cp exemplo.env .env
+nano .env                         # ajustar PROJETO_RAIZ, PAINEL_SENHA, PAINEL_COOKIE_SECRET
+
+# 2) build da imagem do painel
+sudo env DOCKER_CONFIG=/DATA/.docker docker build -t painel-slotme:v1 .
+
+# 3) subir
+sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d
+```
+
+Acesse em `http://192.168.1.100:8099` (na sua rede local), entre com a `PAINEL_SENHA`.
+
+### 15.4 Uso no dia a dia
+
+- **Editar um cliente:** clicar *Editar* → mexer no formulário → *Salvar* (grava arquivos)
+  ou *Salvar e aplicar* (grava + roda seed/restart).
+- **Criar um cliente:** *+ Novo cliente* → preencher slug, porta, tema/perfil e dados →
+  *Salvar* (cria a pasta a partir do `_template`) → depois *Aplicar*. Lembre que Google
+  Calendar, WhatsApp e Cloudflare ainda são passos manuais (seções 9, 8 e 7).
+- **Aplicar:** o botão mostra o log do `seed`/`restart`; erro de agenda/`calendar_id`
+  aparece aí (ver §9.4).
+
+> Mudou o **código** do próprio painel (`painel/*.js`)? Rebuild + `up -d` do painel
+> (passos 2 e 3 do §15.3). Mudou só dados de cliente pelo painel? O botão *Aplicar* já
+> resolve — não precisa tocar no painel.
+
+### 15.5 Limitações da 1ª versão
+
+- Upload de **fotos** não está no painel: o campo é só o `foto_url` (texto). Coloque o
+  arquivo em `clientes/<slug>/fotos/` manualmente (ou via pasta de rede).
+- Não cria agenda no Google nem instância na Evolution — só a configuração local.

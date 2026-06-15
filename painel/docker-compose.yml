@@ -1,0 +1,25 @@
+# docker-compose.yml do PAINEL admin (uso interno, só LAN).
+# NÃO usa a rede agenda-net e NÃO entra no Cloudflare — fica só em 192.168.1.100:8099.
+#
+# Variáveis vêm do ./.env desta pasta (copie de exemplo.env). As principais:
+#   PROJETO_RAIZ = caminho ABSOLUTO do projeto no host (ex.: /DATA/Agendamento)
+#   PAINEL_SENHA = senha de acesso ao painel
+#
+# Por que PROJETO_RAIZ montado no MESMO caminho? Porque o painel roda `docker compose`
+# dos clientes via socket; o daemon resolve os volumes (./banco_dados, ../../app/...)
+# em caminhos do HOST. Se o path dentro do painel for diferente, os mounts quebram.
+
+services:
+  painel:
+    image: painel-slotme:v1
+    container_name: painel-slotme
+    restart: unless-stopped
+    env_file: .env
+    # roda o código embutido na imagem (/app, com node_modules). O painel acessa os
+    # clientes por caminho absoluto (PROJETO_RAIZ), então não precisa rodar de dentro do projeto.
+    ports:
+      - "8099:3000"
+    volumes:
+      - ${PROJETO_RAIZ}:${PROJETO_RAIZ}                 # projeto no MESMO path do host
+      - /var/run/docker.sock:/var/run/docker.sock       # falar com o Docker do host
+      - /DATA/.docker:/DATA/.docker                      # DOCKER_CONFIG (igual à doc)

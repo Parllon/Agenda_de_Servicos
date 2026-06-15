@@ -1,0 +1,16 @@
+{
+  "name": "slotme-painel",
+  "version": "1.0.0",
+  "description": "Painel admin local do SlotMe — cria/edita clientes e aplica (seed+restart) por formulário, só na LAN.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^8.0.0"
+  }
+}

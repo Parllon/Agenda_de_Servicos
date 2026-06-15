@@ -1,0 +1,70 @@
+:root {
+  --bg: #0f1115; --card: #1a1d24; --linha: #2a2e38;
+  --txt: #e7e9ee; --muted: #9aa0ad; --acc: #5b8cff; --acc2: #2f3947;
+  --ok: #2ecc71; --erro: #ff6b6b;
+}
+* { box-sizing: border-box; }
+/* Garante que o atributo HTML `hidden` esconda o elemento mesmo quando há uma classe
+   com display próprio (ex.: .modal { display:flex }). Sem isto o modal nunca some. */
+[hidden] { display: none !important; }
+body {
+  margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg); color: var(--txt); line-height: 1.4;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 22px; border-bottom: 1px solid var(--linha); background: #12141a;
+}
+h1 { font-size: 18px; margin: 0; }
+h2 { font-size: 16px; }
+section, .modal-box { max-width: 920px; margin: 22px auto; padding: 0 16px; }
+
+.card {
+  background: var(--card); border: 1px solid var(--linha);
+  border-radius: 10px; padding: 16px; margin-bottom: 14px;
+}
+.barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.grid-msg { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.cliente h3 { margin: 0 0 4px; }
+.meta { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
+
+label { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); gap: 4px; flex: 1; }
+input, select, textarea {
+  background: #0f1218; border: 1px solid var(--linha); color: var(--txt);
+  border-radius: 7px; padding: 8px 10px; font-size: 14px; font-family: inherit;
+}
+textarea { resize: vertical; }
+.linha { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+
+fieldset { border: 1px solid var(--linha); border-radius: 10px; margin: 0 0 16px; padding: 14px 16px; }
+legend { color: var(--acc); font-weight: 600; padding: 0 6px; }
+
+button {
+  background: var(--acc); color: #fff; border: 0; border-radius: 7px;
+  padding: 9px 14px; font-size: 14px; cursor: pointer; font-weight: 600;
+}
+button:hover { filter: brightness(1.1); }
+button.secundario { background: var(--acc2); }
+button.add { background: transparent; border: 1px dashed var(--linha); color: var(--muted); margin-top: 6px; }
+button.link { background: none; color: var(--acc); padding: 4px; font-weight: 500; }
+button.remover { color: var(--erro); }
+
+.prof { background: #14171e; }
+.serv { align-items: flex-end; }
+.serv .s-remover { flex: 0; }
+.prof-acoes { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+
+.acoes { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.erro { color: var(--erro); font-size: 13px; min-height: 1em; }
+
+.modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center; z-index: 10;
+}
+.modal-box { background: var(--card); border: 1px solid var(--linha); border-radius: 10px; padding: 18px; width: min(760px, 92vw); }
+.modal-box pre {
+  background: #0a0c10; border: 1px solid var(--linha); border-radius: 8px;
+  padding: 12px; max-height: 50vh; overflow: auto; white-space: pre-wrap; font-size: 12px;
+}

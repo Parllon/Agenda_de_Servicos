@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel SlotMe</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Painel SlotMe</h1>
+    <button id="btn-logout" class="link" hidden>sair</button>
+  </header>
+
+  <!-- LOGIN -->
+  <section id="view-login" class="card" hidden>
+    <h2>Entrar</h2>
+    <form id="form-login">
+      <label>Senha
+        <input type="password" id="login-senha" autocomplete="current-password" required />
+      </label>
+      <button type="submit">Entrar</button>
+      <p id="login-erro" class="erro"></p>
+    </form>
+  </section>
+
+  <!-- LISTA -->
+  <section id="view-lista" hidden>
+    <div class="barra">
+      <h2>Clientes</h2>
+      <button id="btn-novo">+ Novo cliente</button>
+    </div>
+    <div id="lista-clientes" class="grid"></div>
+  </section>
+
+  <!-- FORMULÁRIO (editar / criar) -->
+  <section id="view-form" hidden>
+    <div class="barra">
+      <h2 id="form-titulo">Editar cliente</h2>
+      <button class="link" id="btn-voltar">← voltar</button>
+    </div>
+
+    <form id="form-cliente">
+      <!-- Só na criação -->
+      <fieldset id="fs-criar">
+        <legend>Identidade (definida na criação)</legend>
+        <div class="linha">
+          <label>Slug (pasta/containers)<input id="c-slug" placeholder="ex: carol" /></label>
+          <label>Porta externa<input id="c-porta" type="number" placeholder="ex: 8092" /></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Negócio</legend>
+        <div class="linha">
+          <label>Nome<input id="n-nome" /></label>
+          <label>Subtítulo<input id="n-subtitulo" /></label>
+        </div>
+        <div class="linha">
+          <label>Cidade<input id="n-cidade" /></label>
+          <label>Telefone (DDI+DDD)<input id="n-telefone" placeholder="5521999998888" /></label>
+        </div>
+        <div class="linha">
+          <label>Telegram chat_id do salão<input id="n-telegram" placeholder="vazio = desligado" /></label>
+          <label>Agenda central (Cenário 2)<input id="n-central" placeholder="vazio = Cenário 1/3" /></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Configuração (.env)</legend>
+        <div class="linha">
+          <label>Tema<select id="e-tema"></select></label>
+          <label>Perfil<select id="e-perfil"></select></label>
+        </div>
+        <div class="linha">
+          <label>Expediente início<input id="e-exp-ini" type="number" /></label>
+          <label>Expediente fim<input id="e-exp-fim" type="number" /></label>
+          <label>Folgas (0=dom,1=seg…)<input id="e-folgas" placeholder="ex: 0,6" /></label>
+        </div>
+        <div class="linha">
+          <label>Passo do slot (min)<input id="e-slot" type="number" /></label>
+          <label>Janela (dias)<input id="e-janela" type="number" /></label>
+          <label>Antecedência lembrete (min)<input id="e-antecedencia" type="number" /></label>
+          <label>Hora lembrete véspera<input id="e-vespera" type="number" /></label>
+        </div>
+        <div class="linha">
+          <label>Instância WhatsApp<input id="e-instancia" /></label>
+        </div>
+        <div class="linha">
+          <label>CORS origin<input id="e-cors" placeholder="https://sub.deadzone.com.br" /></label>
+          <label>Landing URL<input id="e-landing" placeholder="https://sub.deadzone.com.br" /></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Profissionais</legend>
+        <div id="profissionais"></div>
+        <button type="button" class="add" id="add-prof">+ Adicionar profissional</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>Mensagens personalizadas (opcional — 1 frase por linha)</legend>
+        <div id="mensagens" class="grid-msg"></div>
+      </fieldset>
+
+      <div class="acoes">
+        <button type="submit" id="btn-salvar">Salvar</button>
+        <button type="button" class="secundario" id="btn-salvar-aplicar">Salvar e aplicar</button>
+        <p id="form-erro" class="erro"></p>
+      </div>
+    </form>
+  </section>
+
+  <!-- LOG do "Aplicar" -->
+  <div id="modal-log" class="modal" hidden>
+    <div class="modal-box">
+      <h3>Aplicando…</h3>
+      <pre id="log-conteudo"></pre>
+      <button id="btn-fecha-log">Fechar</button>
+    </div>
+  </div>
+
+  <template id="tpl-prof">
+    <div class="prof card">
+      <div class="linha">
+        <label>Nome<input class="p-nome" /></label>
+        <label>calendar_id<input class="p-calendar" placeholder="email@gmail.com" /></label>
+      </div>
+      <div class="linha">
+        <label>foto_url<input class="p-foto" placeholder="/fotos/nome.jpg" /></label>
+        <label>Telegram chat_id<input class="p-telegram" /></label>
+      </div>
+      <div class="servicos"></div>
+      <div class="prof-acoes">
+        <button type="button" class="add p-add-serv">+ serviço</button>
+        <button type="button" class="link p-duplicar">duplicar</button>
+        <button type="button" class="link remover p-remover">remover profissional</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-serv">
+    <div class="serv linha">
+      <label>Serviço<input class="s-nome" /></label>
+      <label>Duração (min)<input class="s-duracao" type="number" /></label>
+      <label>Valor (R$)<input class="s-valor" type="number" step="0.01" /></label>
+      <button type="button" class="link remover s-remover">×</button>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
