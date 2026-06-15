@@ -28,16 +28,16 @@ const fs = require('fs');
 const PADRAO = {
   // Enviada no momento do agendamento
   confirmacao: [
-    'Oi, {nome}! 💅 Seu horário de {servico} está confirmado para {data} às {hora} com {profissional}. Até lá!',
-    'Olá, {nome}! Tudo certo com seu agendamento: {servico} em {data}, {hora}, com {profissional}. Te espero! 😊',
-    '{nome}, confirmado! {servico} marcado para {data} às {hora} com {profissional}. Qualquer coisa, é só responder por aqui.',
-    'Oi, {nome}! Anotei aqui: {servico} no dia {data}, às {hora}, com {profissional}. Nos vemos em breve! ✨',
-    'Prontinho, {nome}! Seu {servico} com {profissional} está agendado para {data} às {hora}. 🗓️',
-    '{nome}, tudo certo! Fica na agenda: {servico} com {profissional} no dia {data} às {hora}. Até lá! 🙌',
-    'Confirmado, {nome}! {profissional} te espera no dia {data} às {hora} para o seu {servico}. ✅',
-    'Oi, {nome}! Agendamento feito com sucesso. {profissional} te aguarda em {data} às {hora} para {servico}. Qualquer dúvida, é só chamar!',
-    '{nome}, você está na agenda! {servico} com {profissional} no dia {data} às {hora}. Ansiosa pra te ver! 💛',
-    'Olá, {nome}! Agendamento confirmado: {servico} — {data} às {hora} com {profissional}. Até breve!',
+    'Oi, {nome}! 💅 Seu horário de {servico} está confirmado para {data} às {hora} com {profissional}. Até lá!\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
+    'Olá, {nome}! Tudo certo com seu agendamento: {servico} em {data}, {hora}, com {profissional}. Te espero! 😊\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
+    '{nome}, confirmado! {servico} marcado para {data} às {hora} com {profissional}. Qualquer coisa, é só responder por aqui.\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
+    'Oi, {nome}! Anotei aqui: {servico} no dia {data}, às {hora}, com {profissional}. Nos vemos em breve! ✨\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
+    'Prontinho, {nome}! Seu {servico} com {profissional} está agendado para {data} às {hora}. 🗓️\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
+    '{nome}, tudo certo! Fica na agenda: {servico} com {profissional} no dia {data} às {hora}. Até lá! 🙌\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
+    'Confirmado, {nome}! {profissional} te espera no dia {data} às {hora} para o seu {servico}. ✅\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
+    'Oi, {nome}! Agendamento feito com sucesso. {profissional} te aguarda em {data} às {hora} para {servico}. Qualquer dúvida, é só chamar!\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
+    '{nome}, você está na agenda! {servico} com {profissional} no dia {data} às {hora}. Ansiosa pra te ver! 💛\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
+    'Olá, {nome}! Agendamento confirmado: {servico} — {data} às {hora} com {profissional}. Até breve!\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
   ],
 
   // Lembrete na véspera (com as opções 1/2/3)
