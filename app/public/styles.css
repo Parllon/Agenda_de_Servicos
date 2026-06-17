@@ -3,7 +3,7 @@
    aqui ficam só os ajustes que o Tailwind não cobre (animações, textura, etc.). */
 
 /* Variáveis do tema (valores PADRÃO = tema_1). O servidor injeta um bloco
-   parecido no <head> conforme o .env (TEMA=tema_2..tema_7), sobrescrevendo estes.
+   parecido no <head> conforme o .env (TEMA=tema_2..tema_8), sobrescrevendo estes.
    Cores em canais RGB ("R G B") p/ permitir transparência via rgb(var() / a). */
 :root {
   --c-ivory: 251 246 240;

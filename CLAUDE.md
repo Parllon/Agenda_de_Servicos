@@ -69,7 +69,7 @@ no `.gitignore`. Antes de qualquer commit, conferir `git status` e garantir que 
 disso aparece. Tokens (WhatsApp/Telegram) vivem só nos `.env`.
 
 ## Adicionar um cliente novo (fluxo)
-1. `sudo ./novo-cliente.sh <slug> <porta> <tema> [perfil]` (tema: `tema_1` a `tema_7`; perfil: `profissional`, `barbeiro`, `terapeuta`, `cabeleireiro`, `designer`, `tatuador`, `especialista` — padrão: `profissional`).
+1. `sudo ./novo-cliente.sh <slug> <porta> <tema> [perfil]` (tema: `tema_1` a `tema_8`; perfil: `profissional`, `barbeiro`, `terapeuta`, `cabeleireiro`, `designer`, `tatuador`, `especialista` — padrão: `profissional`).
 2. Editar `clientes/<slug>/dados.json` (dados reais) e pôr fotos em `fotos/`.
 3. Compartilhar as agendas Google com a service account; pôr os IDs no `dados.json`.
 4. WhatsApp (se o plano tiver): criar/conectar a instância no manager + webhook.
@@ -78,10 +78,10 @@ disso aparece. Tokens (WhatsApp/Telegram) vivem só nos `.env`.
    Detalhe na seção 6 da `DOCUMENTACAO-SLOTME.md`.
 
 ## Features configuráveis por cliente
-- **Tema** (`.env` `TEMA`): cores em `app/temas.js` (canais RGB "R G B"). 7 presets:
+- **Tema** (`.env` `TEMA`): cores em `app/temas.js` (canais RGB "R G B"). 8 presets:
   `tema_1` (vinho/marfim), `tema_2` (preto/dourado), `tema_3` (verde/branco),
   `tema_4` (rosa/branco), `tema_5` (nude/caramelo), `tema_6` (preto/vermelho),
-  `tema_7` (pérola/champagne). Cor nova = converter hex→RGB.
+  `tema_7` (pérola/champagne), `tema_8` (branco/preto/cinza). Cor nova = converter hex→RGB.
 - **Perfil do profissional** (`.env` `PERFIL_PROFISSIONAL`): vocabulário da interface,
   independente do tema. Opções: `profissional` (padrão), `barbeiro`, `terapeuta`,
   `cabeleireiro`, `designer`, `tatuador`, `especialista`. Definido em `app/temas.js`

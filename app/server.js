@@ -8,9 +8,9 @@ const path = require('path');
 const fs = require('fs');
 const db = require('./db');
 const { getCalendarClient } = require('./google');
-const { enviarWhatsapp } = require('./whatsapp');
+const { enviarWhatsapp, modoWhatsapp } = require('./whatsapp');
 const { montarMensagem } = require('./mensagens');
-const { notificar, montarAviso } = require('./telegram');
+const { notificar, montarAviso, htmlParaWhatsapp } = require('./telegram');
 const { TEMAS, PERFIS, cssVars } = require('./temas');
 
 const app = express();
@@ -68,9 +68,38 @@ const NEGOCIO = {
   cidade: negocioJson.cidade || process.env.NEGOCIO_CIDADE || 'Rio de Janeiro',
 };
 
+// Permite o cliente final escolher até 2 serviços na mesma marcação. Liga/desliga
+// por salão no dados.json (negocio.permitir_dois_servicos). Default = desligado.
+const PERMITIR_DOIS_SERVICOS = negocioJson.permitir_dois_servicos === true;
+
+// Número de contato (wa.me) e imagem Open Graph — usados na rota /link.
+const WA_CONTATO = String(negocioJson.whatsapp_contato || negocioJson.telefone || '').replace(/\D/g, '');
+const OG_IMAGEM_RAW = negocioJson.og_imagem || '';
+
 // Chat do Telegram do salão/dona: recebe aviso de TODOS os agendamentos
 // (independente do profissional). Vazio = ninguém recebe o aviso "geral".
 const CHAT_SALAO = negocioJson.telegram_chat_id || process.env.TELEGRAM_CHAT_SALAO || null;
+
+// WhatsApp da dona/salão: recebe os MESMOS avisos do Telegram, também por WhatsApp.
+// O número vem do dados.json; a instância de envio é dedicada (WHATSAPP_INSTANCE_AVISOS).
+// Ambos vazios = não envia aviso por WhatsApp (o Telegram segue valendo).
+const WHATSAPP_AVISO_SALAO = negocioJson.whatsapp_aviso || process.env.WHATSAPP_AVISO_SALAO || null;
+const INSTANCIA_AVISOS = process.env.WHATSAPP_INSTANCE_AVISOS || null;
+
+// Aviso à gestão (dona/profissional) em DOIS canais: Telegram (como sempre) e
+// WhatsApp da dona (novo). Tudo fire-and-forget — nunca trava o agendamento.
+// tipo: 'novo' | 'cancelado' | 'remarcar'.
+function avisarGestao({ chatProfissional, chatSalao, tipo, dados }) {
+  notificar({ chatProfissional, chatSalao, texto: montarAviso(tipo, dados) });
+  if (WHATSAPP_AVISO_SALAO) {
+    const texto = htmlParaWhatsapp(montarAviso(tipo, dados));
+    enviarWhatsapp(WHATSAPP_AVISO_SALAO, texto, {
+      instancia: INSTANCIA_AVISOS || undefined, // vazio => usa a instância de envio do cliente
+      semPrefixo: true,
+      imediato: true,
+    }).catch((e) => console.error('[aviso-wa] falha:', e.message));
+  }
+}
 
 // Agenda central do salão (Cenário 2): grava uma 2ª cópia do evento aqui, além
 // da agenda da profissional. Ausente/vazio = Cenários 1 e 3 (grava só na agenda
@@ -87,7 +116,7 @@ function paginaInicial() {
   const head =
     `<style>:root{${cssVars(tema)}}</style>` +
     `<link rel="stylesheet" href="${tema.fonteUrl}">` +
-    `<script>window.__CFG=${JSON.stringify(tema.rotulos)};</script>`;
+    `<script>window.__CFG=${JSON.stringify({ ...tema.rotulos, permitirDoisServicos: PERMITIR_DOIS_SERVICOS })};</script>`;
   return TEMPLATE
     .replace('<!--TEMA-->', head)
     .split('{{NOME}}').join(NEGOCIO.nome)
@@ -102,6 +131,36 @@ function paginaInicial() {
 // A página inicial passa pela rota (p/ tematizar); os demais estáticos (app.js,
 // styles.css, fotos) seguem pelo static. index:false para o static não servir o '/'.
 app.get('/', (_req, res) => res.type('html').send(paginaInicial()));
+
+// Página de redirecionamento com Open Graph customizado.
+// Scrapers (WhatsApp, Telegram, etc.) lêem as tags og:* e exibem o preview do salão.
+// Visitantes humanos são redirecionados imediatamente para o WhatsApp de contato.
+app.get('/link', (_req, res) => {
+  const titulo = [NEGOCIO.nome, NEGOCIO.subtitulo].filter(Boolean).join(' — ');
+  const descricao = `Agende seu horário com ${NEGOCIO.nome}`;
+  const waUrl = WA_CONTATO ? `https://wa.me/${WA_CONTATO}` : (LANDING_URL || '/');
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${titulo}">
+  <meta property="og:description" content="${descricao}">
+  ${OG_IMAGEM ? `<meta property="og:image" content="${OG_IMAGEM}">` : ''}
+  <meta property="og:url" content="${LANDING_URL || waUrl}">
+  <title>${titulo}</title>
+  <meta http-equiv="refresh" content="0;url=${waUrl}">
+</head>
+<body>
+  <script>window.location.replace(${JSON.stringify(waUrl)});</script>
+  <p style="font-family:sans-serif;text-align:center;margin-top:3rem">Redirecionando para o WhatsApp…</p>
+  <p style="font-family:sans-serif;text-align:center"><a href="${waUrl}">Clique aqui se não for redirecionado</a></p>
+</body>
+</html>`;
+  res.type('html').send(html);
+});
+
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // --- Rate limit ---
@@ -138,6 +197,11 @@ const EXPEDIENTE = {
 // pode COMEÇAR (9:00, 9:30, 10:00...). É independente da duração do serviço.
 //   SLOT_STEP_MIN=30 (padrão) -> inícios de meia em meia hora
 const SLOT_STEP_MIN = parseInt(process.env.SLOT_STEP_MIN || '30', 10);
+// Antecedência mínima (minutos) entre AGORA e o início do horário que o cliente
+// pode marcar. Evita marcações "em cima da hora".
+//   ANTECEDENCIA_AGENDAMENTO_MIN=120 (padrão) -> só aparecem horários a partir de agora + 2h
+//   ANTECEDENCIA_AGENDAMENTO_MIN=0            -> desliga a regra (mantém só o filtro de passado)
+const ANTECEDENCIA_AGENDAMENTO_MIN = parseInt(process.env.ANTECEDENCIA_AGENDAMENTO_MIN || '120', 10);
 // Dias da semana sem atendimento (0=domingo ... 6=sábado), vindos do .env.
 //   FOLGAS=0      -> fecha domingo (padrão)
 //   FOLGAS=0,6    -> fecha domingo e sábado
@@ -149,7 +213,13 @@ const FOLGAS = (process.env.FOLGAS ?? '0')
 // Janela máxima de agendamento (dias à frente)
 const JANELA_DIAS = parseInt(process.env.JANELA_DIAS || '30', 10);
 // Endereço público da landing (para o link de reagendamento). Preencha quando o Tunnel estiver no ar.
-const LANDING_URL = process.env.LANDING_URL || 'http://localhost:8090';
+// Barra final removida para evitar duplo // ao concatenar caminhos (ex: /link, /fotos).
+const LANDING_URL = (process.env.LANDING_URL || 'http://localhost:8090').replace(/\/$/, '');
+const OG_IMAGEM = OG_IMAGEM_RAW.startsWith('http')
+  ? OG_IMAGEM_RAW
+  : OG_IMAGEM_RAW.startsWith('/')
+    ? `${LANDING_URL}${OG_IMAGEM_RAW}`
+    : '';
 
 // Início do dia de hoje no fuso de SP (independente do fuso do servidor)
 function inicioHojeSP() {
@@ -162,6 +232,9 @@ function inicioHojeSP() {
 // /dias-disponiveis (assim a regra de disponibilidade fica num único lugar).
 function gerarSlotsDoDia(dataISO, duracao, ocupados, agora) {
   const slots = [];
+  // Horário mais cedo que o cliente pode marcar: agora + antecedência mínima.
+  // Como minInicio >= agora, isto também já descarta horários no passado.
+  const minInicio = new Date(agora.getTime() + ANTECEDENCIA_AGENDAMENTO_MIN * 60000);
   const cursor = new Date(`${dataISO}T${hh(EXPEDIENTE.inicioHora)}:00:00${OFFSET}`);
   const limite = new Date(`${dataISO}T${hh(EXPEDIENTE.fimHora)}:00:00${OFFSET}`);
   while (cursor < limite) {
@@ -170,8 +243,8 @@ function gerarSlotsDoDia(dataISO, duracao, ocupados, agora) {
     if (slotFim <= limite) {
       const colide = ocupados.some((b) =>
         slotInicio < new Date(b.end) && slotFim > new Date(b.start));
-      const noPassado = slotInicio <= agora;
-      if (!colide && !noPassado) {
+      const muitoCedo = slotInicio < minInicio;
+      if (!colide && !muitoCedo) {
         slots.push({
           inicio: slotInicio.toISOString(),
           fim: slotFim.toISOString(),
@@ -338,6 +411,12 @@ app.post('/agendamento', limiteAgendamento, async (req, res) => {
     if (alvoData < inicioHoje || alvoData >= limiteJanela) {
       return res.status(400).json({ erro: 'Data fora do período disponível.' });
     }
+    // Respeita a antecedência mínima (defesa contra página aberta há muito tempo
+    // ou requisição forjada — o filtro de listagem já cuida do fluxo normal).
+    const minInicio = new Date(Date.now() + ANTECEDENCIA_AGENDAMENTO_MIN * 60000);
+    if (alvoData < minInicio) {
+      return res.status(400).json({ erro: 'Esse horário não respeita a antecedência mínima. Escolha outro.' });
+    }
 
     const prof = db.prepare('SELECT * FROM profissionais WHERE id = ?').get(profissionalId);
     if (!prof) return res.status(404).json({ erro: 'Profissional não encontrado' });
@@ -417,19 +496,20 @@ app.post('/agendamento', limiteAgendamento, async (req, res) => {
       console.error('[agendamento] envio whatsapp:', e.message)
     );
 
-    // Aviso ao salão/profissional via Telegram (também fire-and-forget).
-    // O profissional recebe os SEUS; o salão (se configurado) recebe TODOS.
-    notificar({
+    // Aviso ao salão/profissional (Telegram + WhatsApp da dona), fire-and-forget.
+    // O profissional recebe os SEUS (Telegram); o salão (se configurado) recebe TODOS.
+    avisarGestao({
       chatProfissional: prof.telegram_chat_id,
       chatSalao: CHAT_SALAO,
-      texto: montarAviso('novo', {
+      tipo: 'novo',
+      dados: {
         cliente: clienteNome,
         servico: servicoNome,
         profissional: prof.nome,
         data: dataFmt,
         hora: horaFmt,
         telefone: clienteTelefone,
-      }),
+      },
     });
 
     res.status(201).json({ ok: true, eventId: evento.data.id });
@@ -494,6 +574,13 @@ app.post('/webhook-whatsapp', async (req, res) => {
       .get(phone);
 
     if (!ag) {
+      // No modo central a Evolution faz fan-out do mesmo inbound p/ todos os
+      // containers; só o dono do telefone tem o agendamento. Os demais ficam em
+      // SILÊNCIO — senão cada salão responderia "não encontrei" ao cliente.
+      if (modoWhatsapp === 'central') {
+        console.log('[webhook] modo central: telefone sem agendamento neste container, ignorando');
+        return;
+      }
       console.log('[webhook] nenhum agendamento confirmado para', phone);
       await enviarWhatsapp(phone, 'Não encontrei um agendamento ativo no seu número. 🤔');
       return;
@@ -565,16 +652,17 @@ app.post('/webhook-whatsapp', async (req, res) => {
       hour: '2-digit', minute: '2-digit', timeZone: TZ,
     });
     const avisarSalao = (tipo) =>
-      notificar({
+      avisarGestao({
         chatProfissional: prof.telegram_chat_id,
         chatSalao: CHAT_SALAO,
-        texto: montarAviso(tipo, {
+        tipo,
+        dados: {
           cliente: ag.cliente_nome,
           servico: ag.servico_nome,
           profissional: prof.nome,
           data: agData,
           hora: agHora,
-        }),
+        },
       });
 
     if (texto === '1') {

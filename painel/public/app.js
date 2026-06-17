@@ -105,7 +105,7 @@ function abrirCriacao() {
   $('form-titulo').textContent = 'Novo cliente';
   // valores em branco / padrões razoáveis
   preencherForm({
-    negocio: { nome: '', subtitulo: '', cidade: '', telefone: '', telegram_chat_id: '', calendar_central: '' },
+    negocio: { nome: '', subtitulo: '', cidade: '', telefone: '', telegram_chat_id: '', calendar_central: '', permitir_dois_servicos: false },
     mensagens: {},
     profissionais: [vazioProf()],
   }, {
@@ -131,6 +131,9 @@ function preencherForm(dados, env) {
   $('n-telefone').value = neg.telefone || '';
   $('n-telegram').value = neg.telegram_chat_id || '';
   $('n-central').value = neg.calendar_central || '';
+  $('n-whatsapp-aviso').value = neg.whatsapp_aviso || '';
+  $('n-whatsapp-contato').value = neg.whatsapp_contato || '';
+  $('n-dois-servicos').checked = !!neg.permitir_dois_servicos;
 
   $('e-tema').value = env.TEMA || META.temas[0];
   $('e-perfil').value = env.PERFIL_PROFISSIONAL || META.perfis[0];
@@ -142,6 +145,11 @@ function preencherForm(dados, env) {
   $('e-antecedencia').value = env.ANTECEDENCIA_MIN || '';
   $('e-vespera').value = env.LEMBRETE_VESPERA_HORA || '';
   $('e-instancia').value = env.WHATSAPP_INSTANCE || '';
+  $('e-modo').value = (env.WHATSAPP_MODE || 'proprio').toLowerCase();
+  $('e-inst-central').value = env.WHATSAPP_INSTANCE_CENTRAL || '';
+  $('e-inst-avisos').value = env.WHATSAPP_INSTANCE_AVISOS || '';
+  $('e-prefixo-nome').checked = String(env.WHATSAPP_PREFIXO_NOME).toLowerCase() === 'true';
+  $('e-prefixo-label').value = env.WHATSAPP_PREFIXO_LABEL || '';
   $('e-cors').value = env.CORS_ORIGIN || '';
   $('e-landing').value = env.LANDING_URL || '';
 
@@ -239,6 +247,9 @@ function montarDados() {
       telefone: $('n-telefone').value.trim(),
       telegram_chat_id: $('n-telegram').value.trim(),
       calendar_central: $('n-central').value.trim(),
+      whatsapp_contato: $('n-whatsapp-contato').value.trim(),
+      whatsapp_aviso: $('n-whatsapp-aviso').value.trim(),
+      permitir_dois_servicos: $('n-dois-servicos').checked,
     },
     mensagens: {},
     profissionais: [],
@@ -269,6 +280,11 @@ function montarEnv() {
     ANTECEDENCIA_MIN: $('e-antecedencia').value,
     LEMBRETE_VESPERA_HORA: $('e-vespera').value,
     WHATSAPP_INSTANCE: $('e-instancia').value.trim(),
+    WHATSAPP_MODE: $('e-modo').value,
+    WHATSAPP_INSTANCE_CENTRAL: $('e-inst-central').value.trim(),
+    WHATSAPP_PREFIXO_NOME: $('e-prefixo-nome').checked ? 'true' : 'false',
+    WHATSAPP_PREFIXO_LABEL: $('e-prefixo-label').value.trim(),
+    WHATSAPP_INSTANCE_AVISOS: $('e-inst-avisos').value.trim(),
     CORS_ORIGIN: $('e-cors').value.trim(),
     LANDING_URL: $('e-landing').value.trim(),
     PORTA_EXTERNA: modoCriar ? $('c-porta').value : undefined,

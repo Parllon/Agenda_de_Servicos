@@ -17,6 +17,31 @@ const axios = require('axios');
 
 const PROVIDER = (process.env.WHATSAPP_PROVIDER || 'zapi').toLowerCase();
 
+// ---- Modo de WhatsApp (escolhido por cliente no .env) ----
+//   proprio (padrão)  -> cada salão usa o PRÓPRIO número (WHATSAPP_INSTANCE)
+//   central           -> um único número do SlotMe envia p/ todos (WHATSAPP_INSTANCE_CENTRAL)
+// Lidos no carregamento do módulo (o container reinicia ao trocar o .env).
+const MODE = (process.env.WHATSAPP_MODE || 'proprio').toLowerCase();
+const PREFIXO_ON = String(process.env.WHATSAPP_PREFIXO_NOME || '').toLowerCase() === 'true';
+
+// Qual instância da Evolution usar neste envio. No modo central usa a instância
+// única; se ela não estiver configurada, cai na do próprio cliente (à prova de erro).
+function instanciaAtiva() {
+  if (MODE === 'central') {
+    return process.env.WHATSAPP_INSTANCE_CENTRAL || process.env.WHATSAPP_INSTANCE;
+  }
+  return process.env.WHATSAPP_INSTANCE;
+}
+
+// Prefixa "[Label] " na mensagem quando ligado — ajuda o cliente final a saber de
+// qual salão é o aviso (essencial no modo central, em que todos recebem do mesmo
+// número). O texto vem de WHATSAPP_PREFIXO_LABEL; vazio = usa o slug CLIENTE.
+function aplicarPrefixo(mensagem) {
+  if (!PREFIXO_ON) return mensagem;
+  const label = (process.env.WHATSAPP_PREFIXO_LABEL || process.env.CLIENTE || '').trim();
+  return label ? `[${label}] ${mensagem}` : mensagem;
+}
+
 // ---- Configurações (todas ajustáveis pelo .env, com padrões sensatos) ----
 const cfg = {
   // pausa humana ANTES de começar a mandar (ms)
@@ -44,11 +69,11 @@ function dentroDoHorario(d = new Date()) {
 }
 
 /** Envia o status "digitando..." (composing). Só faz sentido na Evolution. */
-async function enviarPresenca(telefone, ms) {
+async function enviarPresenca(telefone, ms, instancia = instanciaAtiva()) {
   if (PROVIDER !== 'evolution') return;
   try {
     const base = (process.env.WHATSAPP_API_URL || '').replace(/\/$/, '');
-    const url = `${base}/chat/sendPresence/${process.env.WHATSAPP_INSTANCE}`;
+    const url = `${base}/chat/sendPresence/${instancia}`;
     await axios.post(
       url,
       { number: telefone, delay: ms, presence: 'composing' },
@@ -63,12 +88,12 @@ async function enviarPresenca(telefone, ms) {
 }
 
 /** Faz a chamada crua de envio (sem delays). Mantém o switch de provider. */
-async function _postEnvio(telefone, mensagem, digitandoMs) {
+async function _postEnvio(telefone, mensagem, digitandoMs, instancia = instanciaAtiva()) {
   let url, payload, headers;
 
   if (PROVIDER === 'evolution') {
     const base = (process.env.WHATSAPP_API_URL || '').replace(/\/$/, '');
-    url = `${base}/message/sendText/${process.env.WHATSAPP_INSTANCE}`;
+    url = `${base}/message/sendText/${instancia}`;
     // 'delay' faz a Evolution mostrar "digitando" por X ms antes de entregar
     payload = { number: telefone, text: mensagem, delay: digitandoMs };
     headers = { 'Content-Type': 'application/json', apikey: process.env.WHATSAPP_API_TOKEN };
@@ -89,6 +114,8 @@ async function _postEnvio(telefone, mensagem, digitandoMs) {
  * @param {object} [opts]
  * @param {boolean} [opts.imediato=false]         - pula a pausa humana inicial
  * @param {boolean} [opts.respeitarHorario=false] - se true, não envia fora do horário
+ * @param {string}  [opts.instancia]              - instância a usar (default: instanciaAtiva())
+ * @param {boolean} [opts.semPrefixo=false]       - não aplica o prefixo [Label]
  */
 async function enviarWhatsapp(telefone, mensagem, opts = {}) {
   try {
@@ -97,6 +124,13 @@ async function enviarWhatsapp(telefone, mensagem, opts = {}) {
       return { ok: false, adiado: true };
     }
 
+    // Instância deste envio: a passada por opts (ex.: avisos à dona) ou a do modo.
+    const instancia = opts.instancia || instanciaAtiva();
+
+    // 0. identifica o salão na mensagem quando configurado (modo central).
+    // Avisos internos (à dona) pedem semPrefixo: já são obviamente do salão dela.
+    if (!opts.semPrefixo) mensagem = aplicarPrefixo(mensagem);
+
     // 1. pausa humana antes de tudo (a não ser que peça imediato)
     if (!opts.imediato) {
       await sleep(randInt(cfg.delayMin, cfg.delayMax));
@@ -104,10 +138,10 @@ async function enviarWhatsapp(telefone, mensagem, opts = {}) {
 
     // 2. "digitando..." por um tempo aleatório
     const digitandoMs = randInt(cfg.digitandoMin, cfg.digitandoMax);
-    await enviarPresenca(telefone, digitandoMs);
+    await enviarPresenca(telefone, digitandoMs, instancia);
 
     // 3. envia (na Evolution o próprio delay reforça o "digitando")
-    const data = await _postEnvio(telefone, mensagem, digitandoMs);
+    const data = await _postEnvio(telefone, mensagem, digitandoMs, instancia);
     return { ok: true, data };
   } catch (err) {
     // Falha de WhatsApp NUNCA derruba o agendamento (degradação graciosa).
@@ -138,4 +172,10 @@ async function enviarWhatsappLote(itens, opts = {}) {
   return resultados;
 }
 
-module.exports = { enviarWhatsapp, enviarWhatsappLote, dentroDoHorario };
+module.exports = {
+  enviarWhatsapp,
+  enviarWhatsappLote,
+  dentroDoHorario,
+  modoWhatsapp: MODE, // 'proprio' | 'central' — consultado pelo server.js no webhook
+  instanciaAtiva, // exportado p/ teste e diagnóstico
+};

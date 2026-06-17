@@ -60,4 +60,11 @@ function montarAviso(tipo, { cliente, servico, profissional, data, hora, telefon
   return linhas.join('\n');
 }
 
-module.exports = { enviarTelegram, notificar, montarAviso };
+// Converte o aviso (formatado em HTML p/ Telegram) para o formato do WhatsApp:
+// negrito vira *assim* e qualquer outra tag é removida. Permite reusar o MESMO
+// montarAviso() nos dois canais sem duplicar o conteúdo.
+function htmlParaWhatsapp(html) {
+  return html.replace(/<\/?b>/g, '*').replace(/<[^>]+>/g, '');
+}
+
+module.exports = { enviarTelegram, notificar, montarAviso, htmlParaWhatsapp };

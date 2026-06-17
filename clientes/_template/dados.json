@@ -4,8 +4,12 @@
     "subtitulo": "Nail Designer",
     "cidade": "São Paulo",
     "telefone": "5511988887777",
+    "whatsapp_contato": "",
     "telegram_chat_id": "",
-    "calendar_central": ""
+    "whatsapp_aviso": "",
+    "calendar_central": "",
+    "og_imagem": "",
+    "permitir_dois_servicos": false
   },
   "mensagens": {},
   "profissionais": [

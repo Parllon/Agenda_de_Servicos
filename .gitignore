@@ -56,3 +56,8 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# ==========================================
+# Imagens de contexto (prints/screenshots de uso interno)
+# ==========================================
+Imagens_contexto/

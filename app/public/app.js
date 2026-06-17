@@ -17,13 +17,29 @@ const DDDS = new Set([
 const state = {
   passo: 1,
   profissional: null, // {id, nome}
-  servico: null,      // {id, nome, duracao_min, valor}
+  servicos: [],       // até 2 serviços escolhidos: [{id, nome, duracao_min, valor}]
   horario: null,      // {inicio, fim, label}
   data: null,
   nome: '',
   telefone: '',       // E.164: 55 + DDD + número
   diasDisponiveis: null, // null=sem serviço/falha (tudo clicável) | 'loading' | Set de dias com vaga
 };
+
+// Liga a escolha de até 2 serviços (vem do servidor via __CFG; default desligado).
+const PERMITIR_DOIS = !!(window.__CFG && window.__CFG.permitirDoisServicos);
+
+// Serviço "efetivo" da marcação: null se nada escolhido; o próprio serviço se for 1;
+// ou um combinado (nome "A + B", duração e valor somados) quando houver 2. As rotas
+// do back-end recebem só nome/duração/valor, então o combinado funciona direto.
+function servicoEfetivo() {
+  if (!state.servicos.length) return null;
+  if (state.servicos.length === 1) return state.servicos[0];
+  return {
+    nome: state.servicos.map((s) => s.nome).join(' + '),
+    duracao_min: state.servicos.reduce((a, s) => a + s.duracao_min, 0),
+    valor: state.servicos.reduce((a, s) => a + s.valor, 0),
+  };
+}
 
 // ===================== HELPERS =====================
 const $ = (id) => document.getElementById(id);
@@ -61,7 +77,7 @@ function mostrarPasso(n) {
 function atualizarAvancar() {
   const ok = {
     1: !!state.profissional,
-    2: !!state.servico,
+    2: state.servicos.length >= 1,
     3: !!state.horario,
     4: validarNome().ok && validarTelefone().ok,
     5: true,
@@ -128,7 +144,7 @@ async function carregarProfissionais() {
 
 async function carregarServicos(profissionalId) {
   const wrap = $('lista-servicos');
-  state.servico = null; // a lista vai mudar conforme a profissional; zera a seleção anterior
+  state.servicos = []; // a lista vai mudar conforme a profissional; zera a seleção anterior
   if (!profissionalId) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = `<p class="text-sm text-clay">Carregando serviços…</p>`;
   try {
@@ -149,12 +165,19 @@ async function carregarServicos(profissionalId) {
         </span>
         <span class="font-display text-wine text-lg">${moeda(s.valor)}</span>`;
       b.onclick = () => {
-        state.servico = s; state.horario = null; state.diasDisponiveis = null;
-        selecionar(wrap, b);
-        atualizarAvancar();
-        // avança sozinho pro horário (pequeno respiro pra mostrar o item marcado)
-        clearTimeout(autoAvancoTimer);
-        autoAvancoTimer = setTimeout(avancar, 200);
+        // mudar a seleção invalida horário/dias (a duração muda)
+        state.horario = null; state.diasDisponiveis = null;
+        if (PERMITIR_DOIS) {
+          alternarServico(wrap, b, s); // até 2; sem auto-avanço (2º é opcional)
+          atualizarAvancar();
+        } else {
+          state.servicos = [s];
+          selecionar(wrap, b);
+          atualizarAvancar();
+          // avança sozinho pro horário (pequeno respiro pra mostrar o item marcado)
+          clearTimeout(autoAvancoTimer);
+          autoAvancoTimer = setTimeout(avancar, 200);
+        }
       };
       wrap.appendChild(b);
     });
@@ -169,12 +192,13 @@ async function carregarHorarios() {
   grade.innerHTML = ''; msg.classList.add('hidden');
   state.horario = null; atualizarAvancar();
 
-  if (!state.data || !state.profissional || !state.servico) return;
+  const serv = servicoEfetivo();
+  if (!state.data || !state.profissional || !serv) return;
 
   grade.innerHTML = `<p class="col-span-full text-sm text-clay">Buscando horários…</p>`;
   try {
     const url = `${API}/horarios-disponiveis?profissionalId=${state.profissional.id}` +
-                `&data=${state.data}&duracaoMin=${state.servico.duracao_min}`;
+                `&data=${state.data}&duracaoMin=${serv.duracao_min}`;
     const r = await (await fetch(url)).json();
     grade.innerHTML = '';
     if (!r.horarios || r.horarios.length === 0) {
@@ -199,6 +223,21 @@ async function carregarHorarios() {
 function selecionar(container, el) {
   [...container.children].forEach((c) => c.classList.remove('card-sel'));
   el.classList.add('card-sel');
+}
+
+// Modo "até 2 serviços": alterna o serviço clicado em state.servicos (máx. 2).
+// Clicar num já marcado o remove; tentar um 3º é ignorado. O destaque (card-sel)
+// reflete a pertinência ao conjunto.
+function alternarServico(container, el, s) {
+  const i = state.servicos.indexOf(s);
+  if (i >= 0) {
+    state.servicos.splice(i, 1);
+    el.classList.remove('card-sel');
+  } else if (state.servicos.length < 2) {
+    state.servicos.push(s);
+    el.classList.add('card-sel');
+  }
+  // (se já há 2, o clique num terceiro é ignorado — sem mudar nada)
 }
 
 // Aplica (ou remove) o feedback visual de erro num campo + sua mensagem.
@@ -246,17 +285,25 @@ function aplicarMascara(v) {
 
 // ===================== RESUMO =====================
 function montarResumo() {
+  const serv = servicoEfetivo();
   const dataFmt = new Date(state.horario.inicio).toLocaleDateString('pt-BR', {
     weekday: 'long', day: '2-digit', month: 'long',
   });
+  // Com 1 serviço: uma linha "Serviço". Com 2: uma linha por serviço (e o valor
+  // total embaixo é a soma, via servicoEfetivo()).
+  const linhasServico = state.servicos.length <= 1
+    ? `<div class="flex justify-between"><span class="text-clay">Serviço</span><span class="font-medium">${serv.nome}</span></div>`
+    : state.servicos.map((s) =>
+        `<div class="flex justify-between"><span class="text-clay">Serviço</span><span class="font-medium">${s.nome}</span></div>`
+      ).join('');
   $('resumo').innerHTML = `
     <div class="flex justify-between"><span class="text-clay">${(window.__CFG && window.__CFG.labelProfissional) || 'Profissional'}</span><span class="font-medium">${state.profissional.nome}</span></div>
-    <div class="flex justify-between"><span class="text-clay">Serviço</span><span class="font-medium">${state.servico.nome}</span></div>
+    ${linhasServico}
     <div class="flex justify-between"><span class="text-clay">Data</span><span class="font-medium capitalize">${dataFmt}</span></div>
     <div class="flex justify-between"><span class="text-clay">Horário</span><span class="font-medium">${state.horario.label}</span></div>
     <div class="flex justify-between"><span class="text-clay">Cliente</span><span class="font-medium">${state.nome}</span></div>
     <div class="border-t border-blush/50 pt-3 flex justify-between text-base">
-      <span class="text-wine">Valor</span><span class="font-display text-wine">${moeda(state.servico.valor)}</span>
+      <span class="text-wine">Valor</span><span class="font-display text-wine">${moeda(serv.valor)}</span>
     </div>`;
 }
 
@@ -268,14 +315,15 @@ async function confirmar() {
   $('btn-label').textContent = 'Confirmando…';
   $('erro-final').textContent = '';
 
+  const serv = servicoEfetivo();
   try {
     const r = await fetch(`${API}/agendamento`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         profissionalId: state.profissional.id,
-        servicoNome: state.servico.nome,
-        valor: state.servico.valor,
+        servicoNome: serv.nome,
+        valor: serv.valor,
         clienteNome: state.nome.trim(),
         clienteTelefone: '55' + state.telefone, // E.164
         inicio: state.horario.inicio,
@@ -290,7 +338,7 @@ async function confirmar() {
     for (let i = 1; i <= 5; i++) $(`view-${i}`).classList.add('hidden');
     const dataFmt = new Date(state.horario.inicio).toLocaleDateString('pt-BR');
     $('sucesso-msg').textContent =
-      `${state.servico.nome} com ${state.profissional.nome} em ${dataFmt} às ${state.horario.label}. ` +
+      `${serv.nome} com ${state.profissional.nome} em ${dataFmt} às ${state.horario.label}. ` +
       `Enviamos a confirmação no seu WhatsApp.`;
     $('progress').style.width = '100%';
     $('view-sucesso').classList.remove('hidden');
@@ -332,7 +380,8 @@ let calView = new Date(calHoje.getFullYear(), calHoje.getMonth(), 1); // mês ex
 // Enquanto carrega marca 'loading' (dias ficam neutros); ao terminar guarda um
 // Set com os dias disponíveis. Sem profissional/serviço => null (não bloqueia nada).
 async function carregarDiasDisponiveis() {
-  if (!state.profissional || !state.servico) { state.diasDisponiveis = null; renderCalendario(); return; }
+  const serv = servicoEfetivo();
+  if (!state.profissional || !serv) { state.diasDisponiveis = null; renderCalendario(); return; }
   const ano = calView.getFullYear(), mes = calView.getMonth();
   const primeiro = ymdLocal(new Date(ano, mes, 1));
   const ultimo = ymdLocal(new Date(ano, mes + 1, 0));
@@ -340,7 +389,7 @@ async function carregarDiasDisponiveis() {
   renderCalendario();
   try {
     const url = `${API}/dias-disponiveis?profissionalId=${state.profissional.id}` +
-                `&inicio=${primeiro}&fim=${ultimo}&duracaoMin=${state.servico.duracao_min}`;
+                `&inicio=${primeiro}&fim=${ultimo}&duracaoMin=${serv.duracao_min}`;
     const r = await (await fetch(url)).json();
     state.diasDisponiveis = new Set(r.disponiveis || []);
   } catch {
@@ -456,6 +505,7 @@ document.querySelectorAll('#steps li').forEach((li) => {
 });
 
 // ===================== INIT =====================
+if (PERMITIR_DOIS) $('servicos-hint').classList.remove('hidden'); // dica do passo 2
 carregarProfissionais(); // ao escolher a profissional, os serviços dela são carregados
 renderCalendario();
 mostrarPasso(1);

@@ -6,7 +6,7 @@
 | **Infra** | ZimaOS (Docker) em `192.168.1.100` + Cloudflare Tunnel |
 | **Domínio** | `deadzone.com.br` (subdomínios por cliente) |
 | **Repo** | `github.com/Parllon/Agenda_de_Servicos` (branch `main`) |
-| **Última atualização** | 2026-06-13 |
+| **Última atualização** | 2026-06-15 |
 
 > **Como ler:** se só quer colocar um cliente novo no ar, vá direto para a seção
 > **5. Manual: adicionar um cliente novo**. O resto é referência.
@@ -77,7 +77,7 @@ Benefício: corrigiu um bug → rebuild da imagem uma vez → **todos os cliente
 │   ├── whatsapp.js             # envio com comportamento humano anti-ban
 │   ├── telegram.js             # avisos internos (salão + profissional)
 │   ├── mensagens.js            # textos com variações (anti-repetição)
-│   ├── temas.js                # presets visuais (tema_1 a tema_7)
+│   ├── temas.js                # presets visuais (tema_1 a tema_8)
 │   ├── cron-lembretes.js       # lembrete relativo + véspera
 │   ├── seed.js                 # popula banco a partir do dados.json
 │   ├── Dockerfile
@@ -107,7 +107,7 @@ Benefício: corrigiu um bug → rebuild da imagem uma vez → **todos os cliente
 
 - **Imagem única:** `app/Dockerfile` → `motor-agendamento:v1`. O `docker-compose.yml` de cada cliente **não faz build** — apenas referencia essa imagem.
 - **Rede `agenda-net`:** rede Docker externa compartilhada. Permite que o app de um cliente alcance a Evolution pelo nome `evolution-api`, e que a Evolution alcance o webhook pelo nome `<slug>-app`.
-- **Tema:** a variável `TEMA` no `.env` do cliente escolhe o visual (`tema_1` a `tema_7`). O `server.js` injeta as variáveis CSS no `<head>` — nenhuma classe HTML muda, só os valores.
+- **Tema:** a variável `TEMA` no `.env` do cliente escolhe o visual (`tema_1` a `tema_8`). O `server.js` injeta as variáveis CSS no `<head>` — nenhuma classe HTML muda, só os valores.
 - **Ficha do cliente (`dados.json`):** fonte única dos dados. O `seed.js` lê dela para popular o banco; o `server.js` lê o bloco `negocio` para o frontend.
 - **Cloudflare Tunnel:** porta externa única por cliente → subdomínio próprio.
 
@@ -152,7 +152,7 @@ TIMEZONE=America/Sao_Paulo
 TIMEZONE_OFFSET=-03:00
 
 # --- Tema visual e perfil do profissional ---
-TEMA=tema_1                                        # tema_1..tema_7 (ver temas.js / seção 10)
+TEMA=tema_1                                        # tema_1..tema_8 (ver temas.js / seção 10)
 PERFIL_PROFISSIONAL=profissional                   # profissional | barbeiro | terapeuta | cabeleireiro | designer | tatuador | especialista
 
 # --- Expediente e grade de horários ---
@@ -162,6 +162,7 @@ FOLGAS=0                                          # dias sem atendimento (0=dom,
                                                   # "0,6" = dom+sáb; vazio = abre tudo
 SLOT_STEP_MIN=30                                  # de quanto em quanto min um serviço PODE começar
 JANELA_DIAS=30                                    # dias à frente disponíveis para agendar
+ANTECEDENCIA_AGENDAMENTO_MIN=120                  # antecedência mínima p/ marcar (min); 120 = só horários a partir de agora+2h; 0 desliga
 
 # --- Caminhos (dentro do container — não mudar) ---
 CAMINHO_DADOS_JSON=/cliente/dados.json
@@ -170,11 +171,20 @@ DB_PATH=/data/agendamentos.db
 # --- Google Calendar ---
 # (credentials.json montado pelo docker-compose.yml — não precisa de var aqui)
 
-# --- WhatsApp (Evolution) ---
+# --- WhatsApp: envio ao cliente final (Evolution) ---
 WHATSAPP_PROVIDER=evolution
 WHATSAPP_API_URL=http://evolution-api:8080        # nome na rede agenda-net
 WHATSAPP_API_TOKEN=<chave mestre da Evolution>    # = EVOLUTION_API_KEY do Evolution_Global/.env
-WHATSAPP_INSTANCE=bya                             # = nome da instância no manager
+WHATSAPP_INSTANCE=bya                             # instância do salão (modo proprio)
+
+# --- WhatsApp: modo de envio (ver §8.6) ---
+WHATSAPP_MODE=proprio                             # proprio (padrão) | central
+WHATSAPP_INSTANCE_CENTRAL=slotme_central          # instância central; só usada se WHATSAPP_MODE=central
+WHATSAPP_PREFIXO_NOME=false                       # true = prefixa "[Label] " na mensagem (modo central)
+WHATSAPP_PREFIXO_LABEL=                           # texto do prefixo; vazio = usa o slug CLIENTE
+
+# --- WhatsApp: aviso interno à dona (instância dedicada, só envio — ver §8.7) ---
+WHATSAPP_INSTANCE_AVISOS=                         # instância que envia avisos à dona; vazio = usa a de envio
 
 # --- Anti-ban (valores de produção — não reduzir) ---
 ENVIO_DELAY_MIN_MS=3000                           # pausa antes de enviar (ms)
@@ -209,8 +219,11 @@ TELEGRAM_BOT_TOKEN=<token do bot>                 # vazio = Telegram desativado
     "subtitulo": "Nail Designer",
     "cidade": "Rio de Janeiro",
     "telefone": "5521999998888",
+    "whatsapp_contato": "",         // nº do link "fale com a gente" no rodapé (modo central; vazio = usa telefone). Ver §8.6/§11
+    "whatsapp_aviso": "",           // WhatsApp da dona que recebe os avisos (vazio = sem aviso por WhatsApp). Ver §8.7
     "telegram_chat_id": "",         // recebe TODOS os agendamentos (vazio = desativado)
-    "calendar_central": ""          // Cenário 2: agenda central do salão (vazio = Cenários 1/3). Ver §9.5
+    "calendar_central": "",         // Cenário 2: agenda central do salão (vazio = Cenários 1/3). Ver §9.5
+    "permitir_dois_servicos": false // true = cliente pode escolher até 2 serviços (2º opcional). Padrão: false. Liga/desliga no Painel Admin
   },
   "mensagens": {
     // Sobrescreve só os tipos que quiser; o resto usa o padrão de mensagens.js.
@@ -292,10 +305,19 @@ Para **cada profissional**:
 
 ### Passo 4 — WhatsApp (se o plano incluir)
 
+Decida o **modo** (Bloco 4 do checklist) e ajuste `WHATSAPP_MODE` no `.env`.
+
+**Modo próprio** (`WHATSAPP_MODE=proprio`, padrão):
 1. No manager da Evolution (`http://192.168.1.100:8080/manager`): crie uma instância com nome **exatamente igual** ao `WHATSAPP_INSTANCE` do `.env` e conecte o número (QR Code).
-2. Configure o **webhook** da instância no manager:
+2. Configure o **webhook** da instância:
    - **URL:** `http://<slug>-app:3000/webhook-whatsapp` (porta **3000**, que é a interna)
-   - **Evento:** `MESSAGES_UPSERT` (sem isso o cliente não consegue responder 1/2/3)
+   - **Evento:** `MESSAGES_UPSERT` (sem isso o cliente não consegue responder 1/2/3). Ver §8.4.
+
+**Modo central** (`WHATSAPP_MODE=central`):
+1. Não pareia nada do cliente — ele usa a instância central já no ar (`WHATSAPP_INSTANCE_CENTRAL`) e o dispatcher de respostas. Setup único em **§8.6**.
+2. Identifique o salão: `WHATSAPP_PREFIXO_NOME=true` + `WHATSAPP_PREFIXO_LABEL=<etiqueta>` no `.env`, e `negocio.whatsapp_contato` no `dados.json` (link "fale com a gente" no rodapé).
+
+**Aviso à dona por WhatsApp** (opcional, qualquer modo): `negocio.whatsapp_aviso` no `dados.json` + `WHATSAPP_INSTANCE_AVISOS` no `.env`. Ver **§8.7**.
 
 ### Passo 5 — Telegram (opcional)
 
@@ -433,6 +455,7 @@ sudo env DOCKER_CONFIG=/DATA/.docker docker logs --tail 50 <slug>-app
 - Painel: `http://192.168.1.100:8080/manager`
 - Envio: `whatsapp.js` chama `WHATSAPP_API_URL/message/sendText/<instância>` com header `apikey: WHATSAPP_API_TOKEN`.
 - Recebimento: Evolution chama o webhook `http://<slug>-app:3000/webhook-whatsapp` a cada mensagem recebida.
+- **Modos de envio:** `WHATSAPP_MODE=proprio` (cada salão no seu número) ou `central` (um número único do SlotMe para todos). Ver **§8.6**.
 
 > `WHATSAPP_API_TOKEN` no `.env` do cliente deve ser **a mesma chave** que `EVOLUTION_API_KEY` no `Evolution_Global/.env`.
 
@@ -462,7 +485,7 @@ A Evolution precisa ter o evento **MESSAGES_UPSERT** configurado no webhook da i
 curl -X POST http://localhost:8080/webhook/set/<instância> \
   -H "apikey: <EVOLUTION_API_KEY>" \
   -H "Content-Type: application/json" \
-  -d '{"webhook":{"url":"http://<slug>-app:3000/webhook-whatsapp","events":["MESSAGES_UPSERT"]}}'
+  -d '{"webhook":{"enabled":true,"url":"http://<slug>-app:3000/webhook-whatsapp","events":["MESSAGES_UPSERT"]}}'
 ```
 
 ### 8.5 Recriar instância (após atualizar versão do WhatsApp Web)
@@ -474,6 +497,53 @@ curl -X POST   http://localhost:8080/instance/create \
   -d '{"instanceName":"<instância>","integration":"WHATSAPP-BAILEYS"}'
 # depois reconectar via QR no manager
 ```
+
+### 8.6 Modo central + dispatcher (fan-out)
+
+No modo central (`WHATSAPP_MODE=central`) um **único número do SlotMe** atende todos os
+salões — baixa o custo de onboarding (o cliente não pareia número) e atende quem não
+quer expor o próprio WhatsApp.
+
+**Envio:** `whatsapp.js` usa `WHATSAPP_INSTANCE_CENTRAL` no lugar de `WHATSAPP_INSTANCE`.
+Como todos recebem do mesmo número, a mensagem é identificada: `WHATSAPP_PREFIXO_NOME=true`
++ `WHATSAPP_PREFIXO_LABEL` prefixam `[Bya]`, e o rodapé com `negocio.whatsapp_contato` dá
+o link de contato (ver §11.2).
+
+**Recebimento:** a instância central tem **um** webhook, mas cada cliente tem o seu
+container. O **dispatcher** (`app/webhook-dispatcher.js`, container `webhook-dispatcher`)
+recebe o webhook da central e repassa para todos os containers em modo central (descobre
+lendo `clientes/*/.env`). Só o container dono do telefone responde — os outros ficam em
+silêncio (blindagem no `server.js`).
+
+Setup (uma vez por servidor):
+1. Criar/parear a instância central (ex.: `slotme_central`) no manager.
+2. Subir o dispatcher:
+   ```bash
+   cd ~/Agendamento/dispatcher
+   sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d
+   ```
+3. Apontar o webhook da instância central para o dispatcher:
+   ```bash
+   curl -X POST http://localhost:8080/webhook/set/slotme_central \
+     -H "apikey: <EVOLUTION_API_KEY>" -H "Content-Type: application/json" \
+     -d '{"webhook":{"enabled":true,"url":"http://webhook-dispatcher:3000/webhook-whatsapp","events":["MESSAGES_UPSERT"]}}'
+   ```
+
+> Ativar um cliente no central: pôr `WHATSAPP_MODE=central` (+ prefixo/contato) no `.env`/
+> `dados.json` dele e `docker compose up -d --force-recreate`. O dispatcher passa a incluí-lo
+> automaticamente (relê os `.env` a cada mensagem). Limitação: se a mesma pessoa for cliente
+> de dois salões em central com agendamento ativo, os dois respondem ao "1".
+
+### 8.7 Aviso à dona por WhatsApp
+
+Além do Telegram (§11.3), o salão pode receber os avisos (novo / cancelado / remarcado)
+no **WhatsApp da dona**:
+- **Destino:** `negocio.whatsapp_aviso` no `dados.json` (vazio = desativado).
+- **Instância de envio:** `WHATSAPP_INSTANCE_AVISOS` no `.env` — pareie um número
+  **dedicado** na Evolution. Vazio = usa a instância de envio do cliente.
+- É só **envio** (one-way): **não precisa webhook** nessa instância. O aviso sai imediato,
+  sem o prefixo `[Label]`. Telegram e WhatsApp funcionam em paralelo (configure um, o outro,
+  ou os dois).
 
 ---
 
@@ -532,6 +602,7 @@ A dona cria uma agenda por profissional dentro da própria conta, compartilha ca
 | `tema_5` | Fundo bege quente, caramelo/terracota | Cormorant Garamond + Nunito | Lash, Sobrancelha, Micropig |
 | `tema_6` | Fundo preto profundo, vermelho intenso | Bebas Neue + Barlow | Tatuagem, Piercing |
 | `tema_7` | Fundo branco pérola, champagne dourado | Cormorant Garamond + Montserrat | Salão premium, Clínica estética |
+| `tema_8` | Fundo branco, detalhes preto e cinza | Space Grotesk + Inter | Estúdio, Barbearia moderna, Consultoria |
 
 Cada tema define cores como variáveis CSS (`--c-ivory`, `--c-wine`, etc.) em canais RGB sem vírgula — permite que o Tailwind aplique transparência (`bg-wine/40`). O `server.js` injeta o bloco CSS no `<head>` na primeira carga, evitando "flash" de tema errado.
 
@@ -584,6 +655,11 @@ Aceita string única ou lista de strings (sorteia na hora do envio — anti-bot)
 | `confirmado` | Quando o cliente responde `1` no lembrete de véspera |
 | `cancelado` | Quando o cliente responde `3` no lembrete de véspera |
 
+> **Rodapé de contato (só no modo central):** em `confirmacao` e `vespera`, o sistema
+> anexa automaticamente o nome do salão + link `wa.me` de contato
+> (`negocio.whatsapp_contato`, ou `negocio.telefone` se vazio). No modo próprio o cliente
+> já conversa com o número do salão, então o rodapé não aparece.
+
 ### 11.3 Telegram (avisos ao salão)
 
 O `telegram.js` avisa sobre novo agendamento, cancelamento e remarcação via Telegram. Dois destinos independentes (sem duplicação):
@@ -591,6 +667,9 @@ O `telegram.js` avisa sobre novo agendamento, cancelamento e remarcação via Te
 - **Do salão/dona:** `negocio.telegram_chat_id` no `dados.json` — recebe todos.
 
 O `TELEGRAM_BOT_TOKEN` no `.env` do cliente ativa o recurso. Deixar vazio = Telegram desativado sem efeito colateral.
+
+> O **mesmo aviso** pode sair por **WhatsApp** para a dona (`negocio.whatsapp_aviso`), em
+> paralelo ao Telegram — ver **§8.7**.
 
 ---
 

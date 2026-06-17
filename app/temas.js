@@ -13,6 +13,7 @@
 //   tema_5 — Beauty Studio       (nude + caramelo)        → lash, sobrancelhas, micropigmentação
 //   tema_6 — Ink & Art           (preto profundo + vermelho) → tatuagem, piercing
 //   tema_7 — Luxo Premium        (branco pérola + champagne) → salão premium, clínica estética
+//   tema_8 — Minimalista Mono    (branco + preto + cinza)    → estúdio, barbearia moderna, consultoria
 
 const TEMAS = {
 
@@ -174,6 +175,29 @@ const TEMAS = {
       subProfissional:   'Em boas mãos.',
       subServico:        'Selecione o cuidado desejado.',
       labelProfissional: 'Especialista',
+    },
+  },
+
+  // ── tema_8 — Minimalista Mono ────────────────────────────────────────────────
+  tema_8: {
+    cores: {
+      ivory:     '250 250 250', // branco quase puro (fundo predominante)
+      wine:      '24 24 27',    // preto (primária)
+      wineDark:  '0 0 0',       // preto puro (hover / texto forte)
+      blush:     '212 212 216', // cinza claro (bordas / realces)
+      blushSoft: '235 235 238', // cinza muito claro (trilho / fundos)
+      clay:      '113 113 122', // cinza médio (texto secundário)
+      gold:      '161 161 170', // cinza (detalhe — no lugar do dourado)
+      card:      '255 255 255', // cartão branco puro
+    },
+    fontes: { display: "'Space Grotesk', sans-serif", body: "'Inter', sans-serif" },
+    fonteUrl: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap',
+    rotulos: {
+      stepProfissional:  'Profissional',
+      tituloProfissional:'Escolha o profissional',
+      subProfissional:   'Quem vai te atender?',
+      subServico:        'Selecione o serviço desejado.',
+      labelProfissional: 'Profissional',
     },
   },
 

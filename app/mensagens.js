@@ -28,16 +28,16 @@ const fs = require('fs');
 const PADRAO = {
   // Enviada no momento do agendamento
   confirmacao: [
-    'Oi, {nome}! 💅 Seu horário de {servico} está confirmado para {data} às {hora} com {profissional}. Até lá!\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
-    'Olá, {nome}! Tudo certo com seu agendamento: {servico} em {data}, {hora}, com {profissional}. Te espero! 😊\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
-    '{nome}, confirmado! {servico} marcado para {data} às {hora} com {profissional}. Qualquer coisa, é só responder por aqui.\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
-    'Oi, {nome}! Anotei aqui: {servico} no dia {data}, às {hora}, com {profissional}. Nos vemos em breve! ✨\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
-    'Prontinho, {nome}! Seu {servico} com {profissional} está agendado para {data} às {hora}. 🗓️\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
-    '{nome}, tudo certo! Fica na agenda: {servico} com {profissional} no dia {data} às {hora}. Até lá! 🙌\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
-    'Confirmado, {nome}! {profissional} te espera no dia {data} às {hora} para o seu {servico}. ✅\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
-    'Oi, {nome}! Agendamento feito com sucesso. {profissional} te aguarda em {data} às {hora} para {servico}. Qualquer dúvida, é só chamar!\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
-    '{nome}, você está na agenda! {servico} com {profissional} no dia {data} às {hora}. Ansiosa pra te ver! 💛\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
-    'Olá, {nome}! Agendamento confirmado: {servico} — {data} às {hora} com {profissional}. Até breve!\n\nPrecisa mudar algo? É só responder:\n2 - Reagendar\n3 - Cancelar',
+    'Oi, {nome}! O seu horário está confirmadíssimo. ✨\n\n🏆 Serviço: {servico}\n👤 Com: {profissional}\n📅 Data: {data}\n⏰ Horário: {hora}\n\nPrecisa fazer alguma alteração?\n\nÉ só responder com o número:\n2️⃣ - Reagendar\n3️⃣ - Cancelar',
+    'Olá, {nome}! Tudo confirmado por aqui. 😊\n\n🏆 Serviço: {servico}\n👤 Com: {profissional}\n📅 Data: {data}\n⏰ Horário: {hora}\n\nPrecisa fazer alguma alteração?\n\nÉ só responder com o número:\n2️⃣ - Reagendar\n3️⃣ - Cancelar',
+    '{nome}, anotamos tudo! Te esperamos. 💛\n\n🏆 Serviço: {servico}\n👤 Com: {profissional}\n📅 Data: {data}\n⏰ Horário: {hora}\n\nPrecisa fazer alguma alteração?\n\nÉ só responder com o número:\n2️⃣ - Reagendar\n3️⃣ - Cancelar',
+    'Oi, {nome}! Agendamento confirmado com sucesso. ✅\n\n🏆 Serviço: {servico}\n👤 Com: {profissional}\n📅 Data: {data}\n⏰ Horário: {hora}\n\nPrecisa fazer alguma alteração?\n\nÉ só responder com o número:\n2️⃣ - Reagendar\n3️⃣ - Cancelar',
+    'Prontinho, {nome}! Você está na agenda. 🗓️\n\n🏆 Serviço: {servico}\n👤 Com: {profissional}\n📅 Data: {data}\n⏰ Horário: {hora}\n\nPrecisa fazer alguma alteração?\n\nÉ só responder com o número:\n2️⃣ - Reagendar\n3️⃣ - Cancelar',
+    '{nome}, confirmado! Não vemos a hora de te atender. 💅\n\n🏆 Serviço: {servico}\n👤 Com: {profissional}\n📅 Data: {data}\n⏰ Horário: {hora}\n\nPrecisa fazer alguma alteração?\n\nÉ só responder com o número:\n2️⃣ - Reagendar\n3️⃣ - Cancelar',
+    'Oi, {nome}! Tudo anotado e confirmado. ✨\n\n🏆 Serviço: {servico}\n👤 Com: {profissional}\n📅 Data: {data}\n⏰ Horário: {hora}\n\nPrecisa fazer alguma alteração?\n\nÉ só responder com o número:\n2️⃣ - Reagendar\n3️⃣ - Cancelar',
+    'Olá, {nome}! Seu horário está garantido. 🙌\n\n🏆 Serviço: {servico}\n👤 Com: {profissional}\n📅 Data: {data}\n⏰ Horário: {hora}\n\nPrecisa fazer alguma alteração?\n\nÉ só responder com o número:\n2️⃣ - Reagendar\n3️⃣ - Cancelar',
+    '{nome}, feito! Te esperamos com tudo pronto. 😍\n\n🏆 Serviço: {servico}\n👤 Com: {profissional}\n📅 Data: {data}\n⏰ Horário: {hora}\n\nPrecisa fazer alguma alteração?\n\nÉ só responder com o número:\n2️⃣ - Reagendar\n3️⃣ - Cancelar',
+    'Oi, {nome}! Agendamento feito. Até lá! 💛\n\n🏆 Serviço: {servico}\n👤 Com: {profissional}\n📅 Data: {data}\n⏰ Horário: {hora}\n\nPrecisa fazer alguma alteração?\n\nÉ só responder com o número:\n2️⃣ - Reagendar\n3️⃣ - Cancelar',
   ],
 
   // Lembrete na véspera (com as opções 1/2/3)
@@ -125,6 +125,42 @@ function carregarCustom() {
   return {};
 }
 
+// Lê o bloco "negocio" do dados.json (nome, telefone, whatsapp_contato) — usado
+// no rodapé de contato. Vazio/erro = sem rodapé (degrada sem quebrar nada).
+function carregarNegocio() {
+  try {
+    const cam = process.env.CAMINHO_DADOS_JSON;
+    if (cam && fs.existsSync(cam)) {
+      const n = JSON.parse(fs.readFileSync(cam, 'utf8')).negocio;
+      if (n && typeof n === 'object') return n;
+    }
+  } catch (e) {
+    console.error('[mensagens] negocio ignorado (erro ao ler dados.json):', e.message);
+  }
+  return {};
+}
+
+const NEGOCIO = carregarNegocio();
+const MODO_WHATSAPP = (process.env.WHATSAPP_MODE || 'proprio').toLowerCase();
+const LANDING_URL = (process.env.LANDING_URL || '').replace(/\/$/, '');
+
+// Rodapé que identifica o salão e dá um link de contato. SÓ no modo central
+// (no modo próprio o cliente já está conversando com o número do salão). Sem número
+// configurado (whatsapp_contato/telefone) = sem rodapé.
+// Usa /link (com OG customizado) se LANDING_URL estiver configurado; senão wa.me direto.
+function rodapeContato() {
+  if (MODO_WHATSAPP !== 'central') return '';
+  const num = String(NEGOCIO.whatsapp_contato || NEGOCIO.telefone || '').replace(/\D/g, '');
+  if (!num) return '';
+  const nome = NEGOCIO.nome || 'o salão';
+  const link = LANDING_URL ? `${LANDING_URL}/link` : `https://wa.me/${num}`;
+  return `\n\n*${nome}*\nQualquer dúvida ou se precisar falar com a gente, é só clicar:\n${link}`;
+}
+
+// Tipos de mensagem que ganham o rodapé de contato (os enviados ao cliente final
+// nos momentos em que ele pode querer falar com o salão).
+const COM_RODAPE = new Set(['confirmacao', 'vespera']);
+
 // Merge por tipo: o cliente sobrescreve só o que definir; o resto fica no padrão.
 // Aceita string (uma frase) ou lista de frases.
 const custom = carregarCustom();
@@ -150,6 +186,7 @@ function montarMensagem(tipo, dados = {}) {
   for (const [chave, valor] of Object.entries(dados)) {
     texto = texto.replaceAll(`{${chave}}`, valor ?? '');
   }
+  if (COM_RODAPE.has(tipo)) texto += rodapeContato();
   return texto;
 }
 

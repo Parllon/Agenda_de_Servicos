@@ -11,7 +11,7 @@ const PROJETO_RAIZ = process.env.PROJETO_RAIZ || '/DATA/Agendamento';
 const DIR_CLIENTES = path.join(PROJETO_RAIZ, 'clientes');
 
 // Listas de validação — espelham novo-cliente.sh e a doc §10.
-const TEMAS = ['tema_1', 'tema_2', 'tema_3', 'tema_4', 'tema_5', 'tema_6', 'tema_7'];
+const TEMAS = ['tema_1', 'tema_2', 'tema_3', 'tema_4', 'tema_5', 'tema_6', 'tema_7', 'tema_8'];
 const PERFIS = ['profissional', 'barbeiro', 'terapeuta', 'cabeleireiro', 'designer', 'tatuador', 'especialista'];
 
 // Chaves do .env que o painel deixa editar (o resto fica como está no arquivo).
@@ -20,6 +20,9 @@ const ENV_EDITAVEIS = [
   'EXPEDIENTE_INICIO', 'EXPEDIENTE_FIM', 'FOLGAS', 'SLOT_STEP_MIN',
   'JANELA_DIAS', 'ANTECEDENCIA_MIN', 'LEMBRETE_VESPERA_HORA',
   'WHATSAPP_INSTANCE', 'CORS_ORIGIN', 'LANDING_URL',
+  // WhatsApp central + avisos (ver DOCUMENTACAO §8.6/§8.7)
+  'WHATSAPP_MODE', 'WHATSAPP_INSTANCE_CENTRAL',
+  'WHATSAPP_PREFIXO_NOME', 'WHATSAPP_PREFIXO_LABEL', 'WHATSAPP_INSTANCE_AVISOS',
 ];
 
 function dirCliente(slug) {

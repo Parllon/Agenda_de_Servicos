@@ -3,7 +3,7 @@
 # Uso:  sudo ./novo-cliente.sh <slug> <porta> <tema> [perfil]
 #   slug  = nome curto, sem espaços (vira a pasta e o nome dos containers). ex: carol
 #   porta = porta externa única, não pode repetir com outro cliente.        ex: 8092
-#   tema  = visual da interface (tema_1 a tema_7):
+#   tema  = visual da interface (tema_1 a tema_8):
 #     tema_1 — Feminino Clássico   (vinho + marfim)             → manicure, nail designer
 #     tema_2 — Masculino Clássico  (preto + dourado)             → barbearia tradicional
 #     tema_3 — Spa & Estética      (verde esmeralda + branco)    → spa, massagem, estética
@@ -11,6 +11,7 @@
 #     tema_5 — Beauty Studio       (nude + caramelo)             → lash, sobrancelha, micropig
 #     tema_6 — Ink & Art           (preto profundo + vermelho)   → tatuagem, piercing
 #     tema_7 — Luxo Premium        (branco pérola + champagne)   → salão premium, clínica
+#     tema_8 — Minimalista Mono    (branco + preto + cinza)      → estúdio, barbearia moderna, consultoria
 #   perfil = vocabulário do profissional na interface (opcional, padrão: profissional):
 #     profissional | barbeiro | terapeuta | cabeleireiro | designer | tatuador | especialista
 set -euo pipefail
@@ -25,7 +26,7 @@ if [[ -z "$SLUG" || -z "$PORTA" || -z "$TEMA" ]]; then
   echo "Ex.: sudo ./novo-cliente.sh carol 8092 tema_1 cabeleireiro"
   exit 1
 fi
-TEMAS_VALIDOS="tema_1 tema_2 tema_3 tema_4 tema_5 tema_6 tema_7"
+TEMAS_VALIDOS="tema_1 tema_2 tema_3 tema_4 tema_5 tema_6 tema_7 tema_8"
 if ! echo "$TEMAS_VALIDOS" | grep -qw "$TEMA"; then
   echo "ERRO: tema inválido ('$TEMA'). Use um de: $TEMAS_VALIDOS"; exit 1
 fi

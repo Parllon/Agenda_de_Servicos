@@ -64,6 +64,13 @@
           <label>Telegram chat_id do salão<input id="n-telegram" placeholder="vazio = desligado" /></label>
           <label>Agenda central (Cenário 2)<input id="n-central" placeholder="vazio = Cenário 1/3" /></label>
         </div>
+        <div class="linha">
+          <label>WhatsApp aviso à dona<input id="n-whatsapp-aviso" placeholder="5521999998888 (vazio = sem aviso)" /></label>
+          <label>WhatsApp contato (link rodapé)<input id="n-whatsapp-contato" placeholder="vazio = usa o telefone" /></label>
+        </div>
+        <div class="linha">
+          <label><input type="checkbox" id="n-dois-servicos" /> Permitir 2 serviços por agendamento</label>
+        </div>
       </fieldset>
 
       <fieldset>
@@ -84,7 +91,16 @@
           <label>Hora lembrete véspera<input id="e-vespera" type="number" /></label>
         </div>
         <div class="linha">
-          <label>Instância WhatsApp<input id="e-instancia" /></label>
+          <label>Instância WhatsApp (modo próprio)<input id="e-instancia" /></label>
+          <label>Modo WhatsApp<select id="e-modo"><option value="proprio">proprio</option><option value="central">central</option></select></label>
+        </div>
+        <div class="linha">
+          <label>Instância central<input id="e-inst-central" placeholder="só no modo central" /></label>
+          <label>Instância de avisos<input id="e-inst-avisos" placeholder="vazio = usa a de envio" /></label>
+        </div>
+        <div class="linha">
+          <label class="check">Prefixar nome do salão na mensagem<input id="e-prefixo-nome" type="checkbox" /></label>
+          <label>Etiqueta do prefixo<input id="e-prefixo-label" placeholder="ex: Bya (vazio = slug)" /></label>
         </div>
         <div class="linha">
           <label>CORS origin<input id="e-cors" placeholder="https://sub.deadzone.com.br" /></label>
