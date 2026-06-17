@@ -12,6 +12,7 @@ const { enviarWhatsapp, modoWhatsapp } = require('./whatsapp');
 const { montarMensagem } = require('./mensagens');
 const { notificar, montarAviso, htmlParaWhatsapp } = require('./telegram');
 const { TEMAS, PERFIS, cssVars } = require('./temas');
+const { gerarSlotsDoDia: _gerarSlots } = require('./utils');
 
 const app = express();
 
@@ -170,6 +171,7 @@ const limiteGeral = rateLimit({
   max: 100, // até 100 requisições/min por IP (folgado p/ navegação normal)
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
 });
 app.use(limiteGeral);
 
@@ -179,13 +181,14 @@ const limiteAgendamento = rateLimit({
   max: 5, // até 5 agendamentos por IP a cada 15 min
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
   message: { erro: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' },
 });
 
 const TZ = process.env.TIMEZONE || 'America/Sao_Paulo';
 // Offset fixo do fuso (Brasil não tem horário de verão desde 2019).
 const OFFSET = process.env.TIMEZONE_OFFSET || '-03:00';
-const hh = (h) => String(h).padStart(2, '0');
+const { hh } = require('./utils');
 
 // Janela de atendimento (vinda do .env; padrão 9h–19h se não definida).
 //   EXPEDIENTE_INICIO=9  EXPEDIENTE_FIM=19
@@ -230,34 +233,15 @@ function inicioHojeSP() {
 // Gera os horários livres de UM dia, dado o serviço (duração), os blocos
 // ocupados e o instante atual. Reaproveitada por /horarios-disponiveis e
 // /dias-disponiveis (assim a regra de disponibilidade fica num único lugar).
-function gerarSlotsDoDia(dataISO, duracao, ocupados, agora) {
-  const slots = [];
-  // Horário mais cedo que o cliente pode marcar: agora + antecedência mínima.
-  // Como minInicio >= agora, isto também já descarta horários no passado.
-  const minInicio = new Date(agora.getTime() + ANTECEDENCIA_AGENDAMENTO_MIN * 60000);
-  const cursor = new Date(`${dataISO}T${hh(EXPEDIENTE.inicioHora)}:00:00${OFFSET}`);
-  const limite = new Date(`${dataISO}T${hh(EXPEDIENTE.fimHora)}:00:00${OFFSET}`);
-  while (cursor < limite) {
-    const slotInicio = new Date(cursor);
-    const slotFim = new Date(cursor.getTime() + duracao * 60000);
-    if (slotFim <= limite) {
-      const colide = ocupados.some((b) =>
-        slotInicio < new Date(b.end) && slotFim > new Date(b.start));
-      const muitoCedo = slotInicio < minInicio;
-      if (!colide && !muitoCedo) {
-        slots.push({
-          inicio: slotInicio.toISOString(),
-          fim: slotFim.toISOString(),
-          label: slotInicio.toLocaleTimeString('pt-BR', {
-            hour: '2-digit', minute: '2-digit', timeZone: TZ,
-          }),
-        });
-      }
-    }
-    cursor.setMinutes(cursor.getMinutes() + SLOT_STEP_MIN);
-  }
-  return slots;
-}
+const gerarSlotsDoDia = (dataISO, duracao, ocupados, agora) =>
+  _gerarSlots(dataISO, duracao, ocupados, agora, {
+    inicioHora: EXPEDIENTE.inicioHora,
+    fimHora: EXPEDIENTE.fimHora,
+    slotStep: SLOT_STEP_MIN,
+    antecedenciaMin: ANTECEDENCIA_AGENDAMENTO_MIN,
+    offset: OFFSET,
+    tz: TZ,
+  });
 
 // ---------- GET /profissionais ----------
 app.get('/profissionais', (req, res) => {
@@ -701,6 +685,10 @@ app.post('/webhook-whatsapp', async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT || 3000, () =>
-  console.log(`API + landing rodando em http://localhost:${process.env.PORT || 3000}`)
-);
+if (require.main === module) {
+  app.listen(process.env.PORT || 3000, () =>
+    console.log(`API + landing rodando em http://localhost:${process.env.PORT || 3000}`)
+  );
+}
+
+module.exports = app;
