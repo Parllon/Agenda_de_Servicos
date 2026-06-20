@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Novo Cliente · SlotMe</title>
+  <link rel="stylesheet" href="cadastro.css" />
+</head>
+<body>
+
+  <!-- ── Step 0: Login ──────────────────────────────────────────── -->
+  <div id="step-login" class="step active">
+    <div class="login-box">
+      <div class="logo">SlotMe</div>
+      <div class="logo-sub">Cadastro de Clientes</div>
+      <form id="form-login">
+        <div class="fields">
+          <label class="field">
+            <span>Senha</span>
+            <input type="password" id="login-senha" autocomplete="current-password" />
+          </label>
+        </div>
+        <button type="submit" class="btn-primary" style="margin-top:16px;width:100%">Entrar</button>
+        <p id="login-erro" class="erro"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Progress bar ────────────────────────────────────────────── -->
+  <div id="progress-bar" class="progress-bar" hidden>
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+
+  <!-- ── Step header ─────────────────────────────────────────────── -->
+  <div id="step-header" class="step-header" hidden>
+    <span id="step-label">Negócio</span>
+    <span id="step-counter">1 / 6</span>
+  </div>
+
+  <!-- ── Step 1: Negócio ─────────────────────────────────────────── -->
+  <div id="step-negocio" class="step" hidden>
+    <h2>Sobre o negócio</h2>
+    <div class="fields">
+      <label class="field">
+        <span>Nome do salão / estúdio</span>
+        <input type="text" id="n-nome" placeholder="ex: Bya Studio" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>Especialidade</span>
+        <input type="text" id="n-subtitulo" placeholder="ex: Nail Designer" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>Cidade</span>
+        <input type="text" id="n-cidade" placeholder="ex: Rio de Janeiro" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>Subdomínio</span>
+        <input type="text" id="n-slug" placeholder="ex: bya" autocomplete="off" inputmode="url" />
+        <span class="field-hint" id="slug-preview"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- ── Step 2: Visual ──────────────────────────────────────────── -->
+  <div id="step-visual" class="step" hidden>
+    <h2>Estilo visual</h2>
+    <p class="section-label">Tema</p>
+    <div id="tema-grid" class="tema-grid"></div>
+    <p class="section-label">Como chamar quem atende?</p>
+    <div id="perfil-chips" class="chips"></div>
+  </div>
+
+  <!-- ── Step 3: Profissionais ───────────────────────────────────── -->
+  <div id="step-profs" class="step" hidden>
+    <h2>Profissionais</h2>
+    <div id="lista-profs"></div>
+    <button type="button" class="btn-add" id="btn-add-prof">+ Adicionar profissional</button>
+  </div>
+
+  <!-- ── Step 4: WhatsApp ────────────────────────────────────────── -->
+  <div id="step-whatsapp" class="step" hidden>
+    <h2>WhatsApp</h2>
+    <p class="section-label">Modo de envio</p>
+    <div class="radio-group">
+      <label class="radio-card checked" id="card-central">
+        <input type="radio" name="wmode" value="central" checked />
+        <span class="radio-title">Número central SlotMe</span>
+        <span class="radio-desc">Compartilhado — simples de configurar</span>
+      </label>
+      <label class="radio-card" id="card-proprio">
+        <input type="radio" name="wmode" value="proprio" />
+        <span class="radio-title">Número próprio do cliente</span>
+        <span class="radio-desc">Requer vincular no Evolution API</span>
+      </label>
+    </div>
+
+    <div id="wa-central" class="fields">
+      <label class="field">
+        <span>Instância central (Evolution)</span>
+        <input type="text" id="wa-inst-central" value="agendamento" autocomplete="off" />
+      </label>
+    </div>
+    <div id="wa-proprio" class="fields" hidden>
+      <label class="field">
+        <span>Instância própria (Evolution)</span>
+        <input type="text" id="wa-inst-proprio" placeholder="ex: bya_salao" autocomplete="off" />
+      </label>
+    </div>
+
+    <div class="fields" style="margin-top:20px">
+      <div class="toggle-row">
+        <span>Prefixar nome do salão nas mensagens</span>
+        <label class="toggle">
+          <input type="checkbox" id="wa-prefixo" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <label class="field" id="wa-label-field">
+        <span>Etiqueta do prefixo</span>
+        <input type="text" id="wa-label" placeholder="ex: Bya (vazio = usa o slug)" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>Seu WhatsApp para alertas internos (opcional)</span>
+        <input type="tel" id="wa-aviso" placeholder="5521999998888" inputmode="numeric" autocomplete="off" />
+      </label>
+    </div>
+  </div>
+
+  <!-- ── Step 5: Horários ────────────────────────────────────────── -->
+  <div id="step-horarios" class="step" hidden>
+    <h2>Horários de atendimento</h2>
+    <div class="fields">
+      <div class="row-2">
+        <label class="field">
+          <span>Abertura</span>
+          <select id="h-ini"></select>
+        </label>
+        <label class="field">
+          <span>Fechamento</span>
+          <select id="h-fim"></select>
+        </label>
+      </div>
+
+      <div>
+        <p class="section-label" style="margin-bottom:8px">Dias sem atendimento</p>
+        <div id="folgas-grid" class="folgas-grid"></div>
+      </div>
+
+      <div>
+        <p class="section-label" style="margin-bottom:8px">Intervalo entre horários</p>
+        <div id="slot-chips" class="slot-chips"></div>
+      </div>
+
+      <label class="field">
+        <span>Dias disponíveis para agendar</span>
+        <select id="h-janela">
+          <option value="7">7 dias</option>
+          <option value="14">14 dias</option>
+          <option value="21">21 dias</option>
+          <option value="30" selected>30 dias</option>
+          <option value="45">45 dias</option>
+          <option value="60">60 dias</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <!-- ── Step 6: Revisão ─────────────────────────────────────────── -->
+  <div id="step-revisao" class="step" hidden>
+    <h2>Tudo certo?</h2>
+    <div id="revisao-cards"></div>
+  </div>
+
+  <!-- ── Aplicando ───────────────────────────────────────────────── -->
+  <div id="step-aplicando" class="step" hidden>
+    <div class="applying-box">
+      <div class="spinner"></div>
+      <h2 id="apply-titulo">Criando cliente...</h2>
+      <div>
+        <div class="fase" id="fase-config">Criando configuração</div>
+        <div class="fase" id="fase-docker">Iniciando containers</div>
+        <div class="fase" id="fase-dns">Registrando DNS</div>
+        <div class="fase" id="fase-final">Finalizando</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Sucesso ──────────────────────────────────────────────────── -->
+  <div id="step-sucesso" class="step" hidden>
+    <div class="success-box">
+      <div class="check-circle">✓</div>
+      <h2>Cliente ativado!</h2>
+      <a id="link-cliente" class="client-link" target="_blank" href="#"></a>
+      <div id="status-chips" class="status-chips"></div>
+      <div id="aviso-reload" class="aviso" hidden></div>
+      <button type="button" class="btn-primary" id="btn-novo-cliente" style="margin-top:24px;display:block;width:100%">
+        + Cadastrar outro cliente
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Footer nav ──────────────────────────────────────────────── -->
+  <div id="footer-nav" class="footer-nav" hidden>
+    <button type="button" class="btn-back" id="btn-back">← Voltar</button>
+    <button type="button" class="btn-primary" id="btn-next">Próximo →</button>
+  </div>
+
+  <script src="cadastro.js"></script>
+</body>
+</html>

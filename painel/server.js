@@ -13,6 +13,7 @@ const rateLimit = require('express-rate-limit');
 const C = require('./lib/clientes');
 const { criar } = require('./lib/criar');
 const { aplicar } = require('./lib/aplicar');
+const { ativarSubdominio } = require('./lib/cloudflare');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -84,8 +85,32 @@ app.post('/api/clientes/:slug/aplicar', exigirLogin, async (req, res) => {
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
+// Próxima porta disponível para novo cliente (usada pelo wizard de cadastro).
+app.get('/api/next-porta', exigirLogin, (_req, res) => {
+  res.json({ porta: C.proximaPorta() });
+});
+
+// Ativa o subdomínio do cliente: DNS na Cloudflare + atualiza config + tenta reload.
+app.post('/api/clientes/:slug/cloudflare', exigirLogin, async (req, res) => {
+  try {
+    const { porta } = req.body || {};
+    const resultado = await ativarSubdominio(req.params.slug, porta);
+    res.json({ ok: true, ...resultado });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
 // ---- UI estática ----
-app.use(express.static(path.join(__dirname, 'public')));
+const PUBLIC = path.join(__dirname, 'public');
+
+// Raiz: serve o wizard mobile quando acessado via cadastro.*, senão o painel normal.
+app.get('/', (req, res, next) => {
+  if (req.hostname && req.hostname.startsWith('cadastro.')) {
+    return res.sendFile('cadastro.html', { root: PUBLIC });
+  }
+  next();
+});
+
+app.use(express.static(PUBLIC));
 
 app.listen(PORT, () => {
   console.log(`[painel] no ar em http://0.0.0.0:${PORT}  (raiz do projeto: ${C.PROJETO_RAIZ})`);

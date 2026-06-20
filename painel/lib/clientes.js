@@ -137,7 +137,14 @@ function gravar(slug, { dados, env }) {
   }
 }
 
+// Retorna a próxima porta disponível: max(portas em uso) + 1.
+function proximaPorta() {
+  const usadas = listar().map((c) => parseInt(c.porta, 10)).filter(Boolean);
+  return usadas.length ? Math.max(...usadas) + 1 : 8090;
+}
+
 module.exports = {
   PROJETO_RAIZ, DIR_CLIENTES, TEMAS, PERFIS, ENV_EDITAVEIS,
   dirCliente, slugValido, existe, listar, ler, gravar, validar, portasEmUso, normalizarDados,
+  proximaPorta,
 };
