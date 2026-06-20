@@ -4,9 +4,9 @@
 |---|---|
 | **Produto** | SlotMe — SaaS de agendamento para salões (manicure, barbearia, etc.) |
 | **Infra** | ZimaOS (Docker) em `192.168.1.100` + Cloudflare Tunnel |
-| **Domínio** | `deadzone.com.br` (subdomínios por cliente) |
+| **Domínio** | `agendamentos.app.br` (subdomínios por cliente; ex-`deadzone.com.br`, migrado em 2026-06) |
 | **Repo** | `github.com/Parllon/Agenda_de_Servicos` (branch `main`) |
-| **Última atualização** | 2026-06-15 |
+| **Última atualização** | 2026-06-18 |
 
 > **Como ler:** se só quer colocar um cliente novo no ar, vá direto para a seção
 > **5. Manual: adicionar um cliente novo**. O resto é referência.
@@ -201,8 +201,8 @@ LEMBRETE_VESPERA_HORA=21                          # hora do lembrete da véspera
 ANTECEDENCIA_MIN=60                               # quantos min antes o lembrete relativo dispara
 
 # --- Produção ---
-LANDING_URL=https://bya.deadzone.com.br           # usado no link de reagendamento
-CORS_ORIGIN=https://bya.deadzone.com.br           # vazio = libera tudo (só em dev local)
+LANDING_URL=https://bya.agendamentos.app.br       # usado no link de reagendamento
+CORS_ORIGIN=https://bya.agendamentos.app.br       # vazio = libera tudo (só em dev local)
 
 # --- Telegram (avisos internos ao salão) ---
 TELEGRAM_BOT_TOKEN=<token do bot>                 # vazio = Telegram desativado
@@ -341,7 +341,7 @@ Ver seção **7. Cloudflare** abaixo. Resumo:
 
 ```bash
 # 1) DNS (seguro, não derruba nada)
-sudo HOME=/DATA/cloudflared /DATA/bin/cloudflared tunnel route dns agendamento <sub>.deadzone.com.br
+sudo HOME=/DATA/cloudflared /DATA/bin/cloudflared tunnel route dns agendamento <sub>.agendamentos.app.br
 
 # 2) Backup antes de editar (é produção)
 sudo cp /etc/cloudflared/config.yml /etc/cloudflared/config.yml.bak
@@ -352,7 +352,7 @@ sudo systemctl restart cloudflared
 
 ### Passo 8 — Testar
 
-- `https://<sub>.deadzone.com.br` → abre o site.
+- `https://<sub>.agendamentos.app.br` → abre o site.
 - Faz um agendamento completo → evento aparece no Google Calendar e mensagem chega no WhatsApp.
 - Responde "1" → confirma (testa o webhook).
 - Responde "3" → cancela (testa a remoção do evento do Calendar).
@@ -403,9 +403,9 @@ tunnel: d6f1e2aa-6d7f-49ba-b7c1-6486f80e2b4b
 credentials-file: /DATA/cloudflared/.cloudflared/d6f1e2aa-6d7f-49ba-b7c1-6486f80e2b4b.json
 
 ingress:
-  - hostname: agendamento.deadzone.com.br
+  - hostname: agendamento.agendamentos.app.br
     service: http://192.168.1.100:8090           # bya
-  - hostname: navalha.deadzone.com.br
+  - hostname: navalha.agendamentos.app.br
     service: http://192.168.1.100:8091           # navalha_de_ouro
   # adicionar clientes novos AQUI, acima do http_status:404
   - service: http_status:404                     # catch-all obrigatório (sempre no fim)
@@ -417,7 +417,7 @@ ingress:
 
 ```bash
 # 1) DNS (seguro, não toca no túnel)
-sudo HOME=/DATA/cloudflared /DATA/bin/cloudflared tunnel route dns agendamento <sub>.deadzone.com.br
+sudo HOME=/DATA/cloudflared /DATA/bin/cloudflared tunnel route dns agendamento <sub>.agendamentos.app.br
 
 # 2) Backup
 sudo cp /etc/cloudflared/config.yml /etc/cloudflared/config.yml.bak
@@ -734,7 +734,7 @@ sudo env DOCKER_CONFIG=/DATA/.docker docker logs --tail 50 <slug>-cron
 
 # ===== CLOUDFLARE =====
 # Novo subdomínio (DNS):
-sudo HOME=/DATA/cloudflared /DATA/bin/cloudflared tunnel route dns agendamento <sub>.deadzone.com.br
+sudo HOME=/DATA/cloudflared /DATA/bin/cloudflared tunnel route dns agendamento <sub>.agendamentos.app.br
 
 # Editar ingress (sempre fazer backup antes):
 sudo cp /etc/cloudflared/config.yml /etc/cloudflared/config.yml.bak

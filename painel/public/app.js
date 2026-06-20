@@ -150,6 +150,7 @@ function preencherForm(dados, env) {
   $('e-inst-avisos').value = env.WHATSAPP_INSTANCE_AVISOS || '';
   $('e-prefixo-nome').checked = String(env.WHATSAPP_PREFIXO_NOME).toLowerCase() === 'true';
   $('e-prefixo-label').value = env.WHATSAPP_PREFIXO_LABEL || '';
+  $('e-bloquear-dia').checked = String(env.BLOQUEAR_DIA_ATUAL).toLowerCase() === 'true';
   $('e-cors').value = env.CORS_ORIGIN || '';
   $('e-landing').value = env.LANDING_URL || '';
 
@@ -285,6 +286,7 @@ function montarEnv() {
     WHATSAPP_PREFIXO_NOME: $('e-prefixo-nome').checked ? 'true' : 'false',
     WHATSAPP_PREFIXO_LABEL: $('e-prefixo-label').value.trim(),
     WHATSAPP_INSTANCE_AVISOS: $('e-inst-avisos').value.trim(),
+    BLOQUEAR_DIA_ATUAL: $('e-bloquear-dia').checked ? 'true' : 'false',
     CORS_ORIGIN: $('e-cors').value.trim(),
     LANDING_URL: $('e-landing').value.trim(),
     PORTA_EXTERNA: modoCriar ? $('c-porta').value : undefined,

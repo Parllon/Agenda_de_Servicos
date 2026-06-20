@@ -38,7 +38,7 @@ Node + Express; **SQLite** (better-sqlite3, modo WAL); frontend HTML + Tailwind 
 JS puro servido pelo Express; Google Calendar via 1 service account compartilhada
 (`calendar-bot@agenda-de-servicos-498211.iam.gserviceaccount.com`, arquivo
 `app/credentials.json`); WhatsApp via Evolution API; avisos internos via Telegram.
-Tudo em Docker. Túnel Cloudflare `agendamento` (domínio `deadzone.com.br`).
+Tudo em Docker. Túnel Cloudflare `agendamento` (domínio `agendamentos.app.br`).
 
 ## REGRAS CRÍTICAS (já custaram tempo — não repetir)
 1. **Todo comando Docker leva o prefixo** (o `/root` do Zima é read-only):

@@ -1,0 +1,15 @@
+services:
+  studiobeleza-landing:
+    image: nginx:alpine
+    container_name: studiobeleza-landing
+    restart: unless-stopped
+    ports:
+      - "8096:80"
+    volumes:
+      - /DATA/Agendamento/landing_pages/studio_beleza/dist:/usr/share/nginx/html:ro
+    networks:
+      - agenda-net
+
+networks:
+  agenda-net:
+    external: true

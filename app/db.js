@@ -38,6 +38,9 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_ag_lembrete
     ON agendamentos (status, lembrete_enviado, inicio);
+
+  CREATE INDEX IF NOT EXISTS idx_ag_telefone
+    ON agendamentos (cliente_telefone, status, inicio);
 `);
 
 // Migração segura: adiciona a coluna do lembrete da véspera se ainda não existir.

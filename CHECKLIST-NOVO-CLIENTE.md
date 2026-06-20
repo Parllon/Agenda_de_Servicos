@@ -18,7 +18,7 @@ uma cópia para referência.
 | 1.1 | **Nome do salão / estúdio** (aparece no topo da página e nas mensagens) | |
 | 1.2 | **Subtítulo / especialidade** (ex: "Nail Designer", "Barbearia", "Spa") | |
 | 1.3 | **Cidade** (aparece no rodapé da página) | |
-| 1.4 | **Subdomínio desejado** (ex: `carol` → `carol.deadzone.com.br`) | |
+| 1.4 | **Subdomínio desejado** (ex: `carol` → `carol.agendamentos.app.br`) | |
 | 1.5 | **Tema visual** — escolha um dos abaixo: | |
 | 1.6 | **Perfil do profissional** — como a interface chama quem atende: | |
 

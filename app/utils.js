@@ -25,12 +25,17 @@ function gerarSlotsDoDia(dataISO, duracao, ocupados, agora, cfg) {
   const cursor = new Date(`${dataISO}T${hh(inicioHora)}:00:00${offset}`);
   const limite = new Date(`${dataISO}T${hh(fimHora)}:00:00${offset}`);
 
+  // Pré-parseia os blocos ocupados uma vez (em vez de repetir para cada slot candidato).
+  // Em /dias-disponiveis os mesmos blocos são verificados 30× (um por dia) — sem isso,
+  // 30 dias × 16 slots × N eventos = muitos Date parsings repetidos do mesmo dado.
+  const blocos = ocupados.map((b) => ({ start: new Date(b.start), end: new Date(b.end) }));
+
   while (cursor < limite) {
     const slotInicio = new Date(cursor);
     const slotFim = new Date(cursor.getTime() + duracao * 60000);
     if (slotFim <= limite) {
-      const colide = ocupados.some(
-        (b) => slotInicio < new Date(b.end) && slotFim > new Date(b.start)
+      const colide = blocos.some(
+        (b) => slotInicio < b.end && slotFim > b.start
       );
       if (!colide && slotInicio >= minInicio) {
         slots.push({

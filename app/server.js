@@ -129,9 +129,13 @@ function paginaInicial() {
     .split('{{T_SUB_SERV}}').join(PERFIL.subServico);
 }
 
+// Pré-computa o HTML da landing uma única vez: tema, nome e subtítulo são constantes
+// durante toda a vida do container — não há necessidade de recalcular por request.
+const PAGE_HTML = paginaInicial();
+
 // A página inicial passa pela rota (p/ tematizar); os demais estáticos (app.js,
 // styles.css, fotos) seguem pelo static. index:false para o static não servir o '/'.
-app.get('/', (_req, res) => res.type('html').send(paginaInicial()));
+app.get('/', (_req, res) => res.type('html').send(PAGE_HTML));
 
 // Página de redirecionamento com Open Graph customizado.
 // Scrapers (WhatsApp, Telegram, etc.) lêem as tags og:* e exibem o preview do salão.
@@ -162,7 +166,9 @@ app.get('/link', (_req, res) => {
   res.type('html').send(html);
 });
 
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+// maxAge de 7 dias: app.js e styles.css só mudam no rebuild da imagem Docker,
+// portanto o browser pode servir do cache sem re-consultar o servidor.
+app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '7d' }));
 
 // --- Rate limit ---
 // Geral: protege toda a API contra abuso de volume.
@@ -205,6 +211,10 @@ const SLOT_STEP_MIN = parseInt(process.env.SLOT_STEP_MIN || '30', 10);
 //   ANTECEDENCIA_AGENDAMENTO_MIN=120 (padrão) -> só aparecem horários a partir de agora + 2h
 //   ANTECEDENCIA_AGENDAMENTO_MIN=0            -> desliga a regra (mantém só o filtro de passado)
 const ANTECEDENCIA_AGENDAMENTO_MIN = parseInt(process.env.ANTECEDENCIA_AGENDAMENTO_MIN || '120', 10);
+// Bloqueia agendamentos no próprio dia — útil para salões que trabalham só com marcação antecipada.
+//   BLOQUEAR_DIA_ATUAL=true  -> hoje não aparece no calendário nem nos horários
+//   BLOQUEAR_DIA_ATUAL=false (padrão) -> comportamento normal
+const BLOQUEAR_DIA_ATUAL = process.env.BLOQUEAR_DIA_ATUAL === 'true';
 // Dias da semana sem atendimento (0=domingo ... 6=sábado), vindos do .env.
 //   FOLGAS=0      -> fecha domingo (padrão)
 //   FOLGAS=0,6    -> fecha domingo e sábado
@@ -285,6 +295,14 @@ app.get('/horarios-disponiveis', async (req, res) => {
       return res.json({ data, horarios: [], motivo: 'Sem atendimento neste dia.' });
     }
 
+    // Bloqueia agendamentos no próprio dia
+    if (BLOQUEAR_DIA_ATUAL) {
+      const hojeISO = new Date().toLocaleDateString('en-CA', { timeZone: TZ });
+      if (data === hojeISO) {
+        return res.json({ data, horarios: [], motivo: 'Agendamentos no dia não são permitidos.' });
+      }
+    }
+
     const calendar = getCalendarClient(prof.subject_email);
     const duracao = parseInt(duracaoMin, 10);
 
@@ -354,11 +372,12 @@ app.get('/dias-disponiveis', async (req, res) => {
     // Varre dia a dia (Brasil sem horário de verão → passos exatos de 24h),
     // pula folgas e marca os dias com ao menos 1 slot livre.
     const disponiveis = [];
+    const hojeISO = BLOQUEAR_DIA_ATUAL ? new Date().toLocaleDateString('en-CA', { timeZone: TZ }) : null;
     let d = new Date(ini.getTime());
     while (d <= fimD) {
       const iso = d.toLocaleDateString('en-CA', { timeZone: TZ }); // YYYY-MM-DD em SP
       const diaSemana = new Date(`${iso}T12:00:00${OFFSET}`).getUTCDay();
-      if (!FOLGAS.includes(diaSemana)) {
+      if (!FOLGAS.includes(diaSemana) && iso !== hojeISO) {
         const slots = gerarSlotsDoDia(iso, duracao, ocupados, agora);
         if (slots.length > 0) disponiveis.push(iso);
       }

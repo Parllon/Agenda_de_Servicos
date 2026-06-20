@@ -6,7 +6,7 @@
 require('dotenv').config();
 const cron = require('node-cron');
 const db = require('./db');
-const { enviarWhatsapp, enviarWhatsappLote } = require('./whatsapp');
+const { enviarWhatsapp, enviarWhatsappLote, dentroDoHorario } = require('./whatsapp');
 const { montarMensagem } = require('./mensagens');
 
 const TZ = process.env.TIMEZONE || 'America/Sao_Paulo';
@@ -112,5 +112,6 @@ console.log(
   `Cron iniciado — relativo: ${ANTECEDENCIA_MIN}min antes (*/30) | véspera: ${VESPERA_HORA}:00 diário.`
 );
 
-// Execução imediata do relativo ao subir (a véspera só roda no horário marcado)
-processarLembretes();
+// Execução imediata do relativo ao subir — só se estiver dentro do horário comercial.
+// Evita disparar mensagens caso o container reinicie de madrugada.
+if (dentroDoHorario()) processarLembretes();
