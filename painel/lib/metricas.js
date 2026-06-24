@@ -8,7 +8,7 @@ const fs = require('fs');
 const Database = require('better-sqlite3');
 const C = require('./clientes');
 
-const DB_PATH = path.join(C.PROJETO_RAIZ, 'metricas.db');
+const DB_PATH = path.join(C.PROJETO_RAIZ, 'painel', 'metricas.db');
 
 // Banco central de métricas (landing pages)
 const db = new Database(DB_PATH);
