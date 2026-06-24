@@ -15,6 +15,7 @@ const C = require('./lib/clientes');
 const M = require('./lib/metricas');
 const { criar } = require('./lib/criar');
 const { aplicar } = require('./lib/aplicar');
+const { deletar } = require('./lib/deletar');
 const { registrarDNS, atualizarConfig, reloadCloudflared } = require('./lib/cloudflare');
 
 const app = express();
@@ -92,6 +93,15 @@ app.post('/api/clientes', exigirLogin, (req, res) => {
     const r = criar(req.body || {});
     res.json({ ok: true, ...r });
   } catch (e) { res.status(400).json({ erro: e.message }); }
+});
+
+app.delete('/api/clientes/:slug', exigirLogin, async (req, res) => {
+  const slug = req.params.slug;
+  if (!C.existe(slug)) return res.status(404).json({ erro: `cliente '${slug}' não existe` });
+  try {
+    await deletar(slug);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
 app.post('/api/clientes/:slug/aplicar', exigirLogin, (req, res) => {

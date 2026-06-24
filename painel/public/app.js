@@ -66,6 +66,7 @@ async function abrirLista() {
       <div class="prof-acoes">
         <button data-editar="${esc(c.slug)}">Editar</button>
         <button class="secundario" data-aplicar="${esc(c.slug)}">Aplicar</button>
+        <button class="link remover" data-excluir="${esc(c.slug)}">Excluir</button>
       </div>`;
     grid.appendChild(card);
   }
@@ -73,6 +74,8 @@ async function abrirLista() {
     b.addEventListener('click', () => abrirEdicao(b.dataset.editar)));
   grid.querySelectorAll('[data-aplicar]').forEach((b) =>
     b.addEventListener('click', () => aplicar(b.dataset.aplicar)));
+  grid.querySelectorAll('[data-excluir]').forEach((b) =>
+    b.addEventListener('click', () => excluir(b.dataset.excluir)));
 }
 
 $('btn-novo').addEventListener('click', abrirCriacao);
@@ -339,6 +342,17 @@ async function aplicar(slug) {
   }
 }
 $('btn-fecha-log').addEventListener('click', () => esconder('modal-log'));
+
+// ---------- excluir ----------
+async function excluir(slug) {
+  if (!confirm(`Excluir "${slug}"?\n\nOs containers serão parados e a pasta do cliente apagada. Não tem volta.`)) return;
+  try {
+    await api('DELETE', `/api/clientes/${slug}`);
+    await abrirLista();
+  } catch (err) {
+    alert('Erro ao excluir: ' + err.message);
+  }
+}
 
 // ---------- util ----------
 function esc(s) {
