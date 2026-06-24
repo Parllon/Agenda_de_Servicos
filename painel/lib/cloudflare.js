@@ -67,6 +67,9 @@ async function registrarDNS(slug) {
 
 // Insere nova entrada no YAML de configuração do cloudflared.
 function inserirIngress(conteudo, slug, porta) {
+  if (!C.slugValido(slug) || !Number.isInteger(porta) || porta < 1024 || porta > 65535) {
+    throw new Error(`slug ou porta inválidos: ${slug}:${porta}`);
+  }
   const entrada = `  - hostname: ${slug}.${DOMINIO}\n    service: http://192.168.1.100:${porta}`;
   if (!conteudo.includes(CATCH_ALL)) throw new Error('Catch-all http_status:404 não encontrado no cloudflared_config.yml');
   return conteudo.replace(CATCH_ALL, `${entrada}\n${CATCH_ALL}`);
@@ -85,15 +88,38 @@ function atualizarConfig(slug, porta) {
   }
 }
 
-// Tenta reiniciar o cloudflared via Docker (funciona se ele rodar como container).
+// Sincroniza o config do repo para /etc/cloudflared/ e reinicia o daemon.
+// Tenta primeiro via docker restart (container), depois via nsenter (systemd service).
 function reloadCloudflared() {
-  return new Promise((resolve) => {
-    const proc = spawn('docker', ['restart', 'cloudflared'], {
-      env: { ...process.env, DOCKER_CONFIG: process.env.DOCKER_CONFIG || '/DATA/.docker' },
+  const DOCKER_ENV = { ...process.env, DOCKER_CONFIG: process.env.DOCKER_CONFIG || '/DATA/.docker' };
+
+  function tentarDocker() {
+    return new Promise((resolve) => {
+      const p = spawn('docker', ['restart', 'cloudflared'], { env: DOCKER_ENV });
+      p.on('error', () => resolve(false));
+      p.on('close', (code) => resolve(code === 0));
     });
-    proc.on('error', () => resolve({ ok: false }));
-    proc.on('close', (code) => resolve({ ok: code === 0 }));
-  });
+  }
+
+  function tentarNsenter() {
+    // Copia o config atualizado do repo para /etc/cloudflared/ e reinicia no host
+    const cmd = `cp ${CONFIG_REPO} /etc/cloudflared/config.yml && systemctl restart cloudflared`;
+    return new Promise((resolve) => {
+      const p = spawn('docker', [
+        'run', '--rm', '--pid=host', '--privileged',
+        'node:22-slim', 'nsenter', '-t', '1', '-m', '-u', '-i', '-n',
+        '--', 'sh', '-c', cmd,
+      ], { env: DOCKER_ENV });
+      p.on('error', () => resolve(false));
+      p.on('close', (code) => resolve(code === 0));
+    });
+  }
+
+  return (async () => {
+    if (await tentarDocker()) return { ok: true };
+    const ok = await tentarNsenter();
+    return { ok };
+  })();
 }
 
 // Ponto de entrada: DNS + config + reload. Nunca lança — retorna resultado parcial.
@@ -121,4 +147,4 @@ async function ativarSubdominio(slug, porta) {
   return r;
 }
 
-module.exports = { ativarSubdominio };
+module.exports = { ativarSubdominio, registrarDNS, atualizarConfig, reloadCloudflared };

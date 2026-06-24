@@ -54,6 +54,10 @@
         <input type="text" id="n-cidade" placeholder="ex: Rio de Janeiro" autocomplete="off" />
       </label>
       <label class="field">
+        <span>Rede social</span>
+        <input type="text" id="n-redesocial" placeholder="ex: @byastudio ou instagram.com/byastudio" autocomplete="off" />
+      </label>
+      <label class="field">
         <span>Subdomínio</span>
         <input type="text" id="n-slug" placeholder="ex: bya" autocomplete="off" inputmode="url" />
         <span class="field-hint" id="slug-preview"></span>
@@ -121,7 +125,10 @@
       </label>
       <label class="field">
         <span>Seu WhatsApp para alertas internos (opcional)</span>
-        <input type="tel" id="wa-aviso" placeholder="5521999998888" inputmode="numeric" autocomplete="off" />
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">+55</span>
+          <input type="tel" id="wa-aviso" placeholder="21999998888" inputmode="numeric" autocomplete="off" />
+        </div>
       </label>
     </div>
   </div>
@@ -193,6 +200,24 @@
       <a id="link-cliente" class="client-link" target="_blank" href="#"></a>
       <div id="status-chips" class="status-chips"></div>
       <div id="aviso-reload" class="aviso" hidden></div>
+
+      <div class="calendar-setup">
+        <div class="setup-header">Compartilhar o Google Calendar</div>
+        <p class="setup-intro">Cada profissional faz isso <strong>uma única vez</strong> para o bot conseguir criar eventos:</p>
+        <div class="bot-email-row">
+          <span id="bot-email-display">calendar-bot@agenda-de-servicos-498211.iam.gserviceaccount.com</span>
+          <button type="button" id="btn-copy-bot-email" class="btn-copy" onclick="copiarBotEmail()">Copiar e-mail</button>
+        </div>
+        <ol class="setup-steps">
+          <li>Acesse <strong>calendar.google.com</strong></li>
+          <li>No lado esquerdo, clique nos <strong>⋮</strong> ao lado do calendário → <strong>Configurações e compartilhamento</strong></li>
+          <li>Role até <strong>"Compartilhar com pessoas específicas"</strong> e clique em <strong>+ Adicionar pessoas</strong></li>
+          <li>Cole o e-mail do bot e selecione permissão <strong>"Fazer alterações em eventos"</strong></li>
+          <li>Clique em <strong>Enviar</strong></li>
+        </ol>
+        <div class="setup-profs" id="setup-profs"></div>
+      </div>
+
       <button type="button" class="btn-primary" id="btn-novo-cliente" style="margin-top:24px;display:block;width:100%">
         + Cadastrar outro cliente
       </button>

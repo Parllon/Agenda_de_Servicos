@@ -181,6 +181,15 @@ const limiteGeral = rateLimit({
 });
 app.use(limiteGeral);
 
+// Específico para eventos de funil (analytics): mais permissivo que o de agendamento.
+const limiteEvento = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
 // Específico e mais rígido na criação de agendamento (rota pública sensível).
 const limiteAgendamento = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
@@ -264,10 +273,12 @@ app.get('/profissionais', (req, res) => {
 // Sem o parâmetro, devolve todos (compatibilidade / uso administrativo futuro).
 app.get('/servicos', (req, res) => {
   const { profissionalId } = req.query;
-  const rows = profissionalId
-    ? db.prepare('SELECT id, nome, duracao_min, valor FROM servicos WHERE profissional_id = ? ORDER BY id').all(profissionalId)
-    : db.prepare('SELECT id, nome, duracao_min, valor FROM servicos ORDER BY id').all();
-  res.json(rows);
+  if (profissionalId !== undefined) {
+    const profId = parseInt(profissionalId, 10);
+    if (isNaN(profId) || profId < 1) return res.status(400).json({ erro: 'profissionalId inválido' });
+    return res.json(db.prepare('SELECT id, nome, duracao_min, valor FROM servicos WHERE profissional_id = ? ORDER BY id').all(profId));
+  }
+  res.json(db.prepare('SELECT id, nome, duracao_min, valor FROM servicos ORDER BY id').all());
 });
 
 // ---------- GET /horarios-disponiveis ----------
@@ -277,8 +288,10 @@ app.get('/horarios-disponiveis', async (req, res) => {
     if (!profissionalId || !data) {
       return res.status(400).json({ erro: 'profissionalId e data são obrigatórios' });
     }
+    const profId = parseInt(profissionalId, 10);
+    if (isNaN(profId) || profId < 1) return res.status(400).json({ erro: 'profissionalId inválido' });
 
-    const prof = db.prepare('SELECT * FROM profissionais WHERE id = ?').get(profissionalId);
+    const prof = db.prepare('SELECT * FROM profissionais WHERE id = ?').get(profId);
     if (!prof) return res.status(404).json({ erro: 'Profissional não encontrado' });
 
     // Bloqueia datas fora da janela permitida (passado ou além de JANELA_DIAS)
@@ -303,7 +316,7 @@ app.get('/horarios-disponiveis', async (req, res) => {
       }
     }
 
-    const calendar = getCalendarClient(prof.subject_email);
+    const calendar = getCalendarClient();
     const duracao = parseInt(duracaoMin, 10);
 
     const inicioDia = new Date(`${data}T00:00:00`);
@@ -358,7 +371,7 @@ app.get('/dias-disponiveis', async (req, res) => {
     if (fimD < ini) return res.json({ disponiveis: [] });
 
     // Uma só consulta freeBusy cobrindo o período inteiro
-    const calendar = getCalendarClient(prof.subject_email);
+    const calendar = getCalendarClient();
     const fb = await calendar.freebusy.query({
       requestBody: {
         timeMin: ini.toISOString(),
@@ -397,6 +410,7 @@ app.post('/agendamento', limiteAgendamento, async (req, res) => {
     const {
       profissionalId, servicoNome, valor,
       clienteNome, clienteTelefone, inicio, fim,
+      sessaoId,
     } = req.body;
 
     if (!profissionalId || !clienteNome || !clienteTelefone || !inicio || !fim) {
@@ -424,7 +438,7 @@ app.post('/agendamento', limiteAgendamento, async (req, res) => {
     const prof = db.prepare('SELECT * FROM profissionais WHERE id = ?').get(profissionalId);
     if (!prof) return res.status(404).json({ erro: 'Profissional não encontrado' });
 
-    const calendar = getCalendarClient(prof.subject_email);
+    const calendar = getCalendarClient();
 
     const fb = await calendar.freebusy.query({
       requestBody: { timeMin: inicio, timeMax: fim, items: [{ id: prof.calendar_id }] },
@@ -515,6 +529,15 @@ app.post('/agendamento', limiteAgendamento, async (req, res) => {
       },
     });
 
+    // Registra o evento final do funil de métricas (server-side = ground truth).
+    if (sessaoId) {
+      try {
+        db.prepare('INSERT INTO eventos (sessao_id, tipo) VALUES (?, ?)').run(sessaoId, 'agendamento_criado');
+      } catch (e) {
+        console.error('[evento agendamento_criado]', e.message);
+      }
+    }
+
     res.status(201).json({ ok: true, eventId: evento.data.id });
   } catch (err) {
     console.error('[agendamento]', err.message);
@@ -525,7 +548,11 @@ app.post('/agendamento', limiteAgendamento, async (req, res) => {
 // ---------- POST /webhook-whatsapp (Evolution API) ----------
 // Lê o evento messages.upsert e processa as respostas:
 //   1 = Confirmar | 2 = Reagendar | 3 = Cancelar
-app.post('/webhook-whatsapp', async (req, res) => {
+const WEBHOOK_TOKEN = process.env.WEBHOOK_TOKEN || '';
+app.post('/webhook-whatsapp', (req, res, next) => {
+  if (WEBHOOK_TOKEN && req.query.token !== WEBHOOK_TOKEN) return res.sendStatus(403);
+  next();
+}, async (req, res) => {
   // Responde 200 imediatamente para o gateway não reenviar em loop.
   res.sendStatus(200);
 
@@ -596,7 +623,7 @@ app.post('/webhook-whatsapp', async (req, res) => {
       await enviarWhatsapp(phone, 'Tive um problema ao processar. Por favor, fale com o salão. 🙏');
       return;
     }
-    const calendar = getCalendarClient(prof.subject_email);
+    const calendar = getCalendarClient();
 
     // --- Helper: remove o evento do Google e marca como cancelado ---
     // Retorna true só se o cancelamento foi REALMENTE concluído.
@@ -702,6 +729,26 @@ app.post('/webhook-whatsapp', async (req, res) => {
   } catch (err) {
     console.error('[webhook-whatsapp] erro geral:', err.message);
   }
+});
+
+// ---------- POST /evento (funil de métricas) ----------
+// Recebe eventos de rastreamento do frontend (mesma origem). Silencioso: erros
+// aqui nunca bloqueiam o fluxo do usuário.
+const TIPOS_EVENTO = new Set([
+  'pagina_vista', 'profissional_selecionado', 'servico_selecionado',
+  'horario_selecionado', 'dados_preenchidos', 'agendamento_criado',
+]);
+app.post('/evento', limiteEvento, (req, res) => {
+  const { sessaoId, tipo } = req.body || {};
+  if (!sessaoId || !TIPOS_EVENTO.has(tipo)) {
+    return res.status(400).json({ erro: 'payload inválido' });
+  }
+  try {
+    db.prepare('INSERT INTO eventos (sessao_id, tipo) VALUES (?, ?)').run(sessaoId, tipo);
+  } catch (e) {
+    console.error('[evento]', e.message);
+  }
+  res.json({ ok: true });
 });
 
 if (require.main === module) {

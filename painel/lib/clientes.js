@@ -101,6 +101,9 @@ function validar({ dados, env }, slug) {
     if (env.PORTA_EXTERNA) {
       const dono = portasEmUso(slug)[String(env.PORTA_EXTERNA)];
       if (dono) throw new Error(`Porta ${env.PORTA_EXTERNA} já está em uso por "${dono}".`);
+      if (PORTAS_RESERVADAS.has(parseInt(env.PORTA_EXTERNA, 10))) {
+        throw new Error(`Porta ${env.PORTA_EXTERNA} é reservada por um serviço do Zima. Escolha outra.`);
+      }
     }
   }
 }
@@ -137,10 +140,27 @@ function gravar(slug, { dados, env }) {
   }
 }
 
-// Retorna a próxima porta disponível: max(portas em uso) + 1.
+// Portas já ocupadas no host do Zima por serviços que NÃO são clientes SlotMe.
+// Os clientes crescem a partir de 8090, então o que importa é não colidir com
+// nada que esteja >= 8090 nesse caminho. Mantenha em sincronia com `docker ps`.
+const PORTAS_RESERVADAS = new Set([
+  8097, // jellyfin (8097->8096)
+  8099, // painel-slotme
+  8100, // crm_parllon
+  8181, // qbittorrent
+  8921, // jellyfin (8921->8920)
+  8989, // sonarr
+  9000, // portainer
+  9443, // portainer
+  9696, // prowlarr
+  10443, 11080, 45554, // scrypted
+]);
+
 function proximaPorta() {
   const usadas = listar().map((c) => parseInt(c.porta, 10)).filter(Boolean);
-  return usadas.length ? Math.max(...usadas) + 1 : 8090;
+  let candidata = usadas.length ? Math.max(...usadas) + 1 : 8090;
+  while (PORTAS_RESERVADAS.has(candidata) || usadas.includes(candidata)) candidata++;
+  return candidata;
 }
 
 module.exports = {

@@ -7,6 +7,9 @@
 //   3. Envio em lote espaçado (um de cada vez, com intervalo aleatório)
 //   4. Variação de texto (ver mensagens.js)
 //   5. Respeito a horário comercial (não dispara de madrugada)
+//   6. Fila serializada: envios concorrentes saem UM POR VEZ (nunca em rajada)
+//   7. Modo central: TODA mensagem é humanizada (o `imediato` é ignorado), pois o
+//      número é compartilhado por vários salões e não pode disparar sem pausa.
 //
 // IMPORTANTE: por causa dos delays, o envio NÃO deve travar a resposta do
 // agendamento. No server.js, chame SEM await (fire-and-forget):
@@ -62,6 +65,20 @@ const cfg = {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
+// ---- Fila global de envio (anti-rajada) ----
+// Serializa TODOS os disparos deste processo: imita uma pessoa, que nunca envia
+// duas mensagens ao mesmo tempo. Vários agendamentos no mesmo minuto entram em
+// fila e saem um por vez — cada um com sua pausa humana. Sem isso, no modo central
+// o número compartilhado levaria uma rajada (gatilho clássico de ban).
+let cadeiaEnvio = Promise.resolve();
+
+function enfileirar(tarefa) {
+  const resultado = cadeiaEnvio.then(tarefa);
+  // a fila nunca pode "quebrar" por um erro de envio: encadeia ignorando rejeição.
+  cadeiaEnvio = resultado.then(() => {}, () => {});
+  return resultado;
+}
+
 /** Está dentro do horário comercial de envio? */
 function dentroDoHorario(d = new Date()) {
   const h = d.getHours();
@@ -89,6 +106,22 @@ async function enviarPresenca(telefone, ms, instancia = instanciaAtiva()) {
 
 /** Faz a chamada crua de envio (sem delays). Mantém o switch de provider. */
 async function _postEnvio(telefone, mensagem, digitandoMs, instancia = instanciaAtiva()) {
+  // Modo central via wa-sender (whatsapp-web.js): emissor central único, fora do
+  // Baileys/Evolution (que a Meta passou a barrar). Quando WA_SENDER_URL está
+  // configurado, todo envio central vai por ele; a fila/gap globais vivem lá.
+  const waSender = process.env.WA_SENDER_URL;
+  if (MODE === 'central' && waSender) {
+    const resp = await axios.post(
+      `${waSender.replace(/\/$/, '')}/send`,
+      { number: telefone, message: mensagem },
+      {
+        headers: { 'Content-Type': 'application/json', 'x-token': process.env.WA_SENDER_TOKEN || '' },
+        timeout: 15000,
+      }
+    );
+    return resp.data;
+  }
+
   let url, payload, headers;
 
   if (PROVIDER === 'evolution') {
@@ -118,36 +151,43 @@ async function _postEnvio(telefone, mensagem, digitandoMs, instancia = instancia
  * @param {boolean} [opts.semPrefixo=false]       - não aplica o prefixo [Label]
  */
 async function enviarWhatsapp(telefone, mensagem, opts = {}) {
-  try {
-    if (opts.respeitarHorario && !dentroDoHorario()) {
-      console.log('[WhatsApp] fora do horario comercial - envio adiado:', telefone);
-      return { ok: false, adiado: true };
-    }
-
-    // Instância deste envio: a passada por opts (ex.: avisos à dona) ou a do modo.
-    const instancia = opts.instancia || instanciaAtiva();
-
-    // 0. identifica o salão na mensagem quando configurado (modo central).
-    // Avisos internos (à dona) pedem semPrefixo: já são obviamente do salão dela.
-    if (!opts.semPrefixo) mensagem = aplicarPrefixo(mensagem);
-
-    // 1. pausa humana antes de tudo (a não ser que peça imediato)
-    if (!opts.imediato) {
-      await sleep(randInt(cfg.delayMin, cfg.delayMax));
-    }
-
-    // 2. "digitando..." por um tempo aleatório
-    const digitandoMs = randInt(cfg.digitandoMin, cfg.digitandoMax);
-    await enviarPresenca(telefone, digitandoMs, instancia);
-
-    // 3. envia (na Evolution o próprio delay reforça o "digitando")
-    const data = await _postEnvio(telefone, mensagem, digitandoMs, instancia);
-    return { ok: true, data };
-  } catch (err) {
-    // Falha de WhatsApp NUNCA derruba o agendamento (degradação graciosa).
-    console.error('[WhatsApp] falha no envio:', err.response?.data || err.message);
-    return { ok: false, error: err.message };
+  if (opts.respeitarHorario && !dentroDoHorario()) {
+    console.log('[WhatsApp] fora do horario comercial - envio adiado:', telefone);
+    return { ok: false, adiado: true };
   }
+
+  // Instância deste envio: a passada por opts (ex.: avisos à dona) ou a do modo.
+  const instancia = opts.instancia || instanciaAtiva();
+
+  // 0. identifica o salão na mensagem quando configurado (modo central).
+  // Avisos internos (à dona) pedem semPrefixo: já são obviamente do salão dela.
+  if (!opts.semPrefixo) mensagem = aplicarPrefixo(mensagem);
+
+  // No modo central o número é compartilhado: TODA mensagem é humanizada, mesmo as
+  // marcadas `imediato` (ex.: aviso à dona). Em modo proprio, `imediato` ainda pula
+  // a pausa (o salão usa o próprio número, risco menor).
+  const central = MODE === 'central';
+  const pularPausa = opts.imediato && !central;
+
+  // Serializa: entra na fila e sai uma por vez, com pausa humana — nunca em rajada.
+  return enfileirar(async () => {
+    try {
+      // 1. pausa humana antes de tudo
+      if (!pularPausa) await sleep(randInt(cfg.delayMin, cfg.delayMax));
+
+      // 2. "digitando..." por um tempo aleatório
+      const digitandoMs = randInt(cfg.digitandoMin, cfg.digitandoMax);
+      await enviarPresenca(telefone, digitandoMs, instancia);
+
+      // 3. envia (na Evolution o próprio delay reforça o "digitando")
+      const data = await _postEnvio(telefone, mensagem, digitandoMs, instancia);
+      return { ok: true, data };
+    } catch (err) {
+      // Falha de WhatsApp NUNCA derruba o agendamento (degradação graciosa).
+      console.error('[WhatsApp] falha no envio:', err.response?.data || err.message);
+      return { ok: false, error: err.message };
+    }
+  });
 }
 
 /**

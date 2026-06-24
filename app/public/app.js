@@ -25,6 +25,22 @@ const state = {
   diasDisponiveis: null, // null=sem serviço/falha (tudo clicável) | 'loading' | Set de dias com vaga
 };
 
+// ===================== MÉTRICAS (funil) =====================
+// ID de sessão único por visita (limpa ao fechar o tab). Usado para rastrear
+// onde cada visitante desiste no funil de agendamento.
+const SID = (() => {
+  let s = sessionStorage.getItem('slotme_sid');
+  if (!s) { s = crypto.randomUUID(); sessionStorage.setItem('slotme_sid', s); }
+  return s;
+})();
+function trackEvent(tipo) {
+  fetch('/evento', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessaoId: SID, tipo }),
+  }).catch(() => {}); // fire-and-forget; nunca bloqueia a UI
+}
+
 // Liga a escolha de até 2 serviços (vem do servidor via __CFG; default desligado).
 const PERMITIR_DOIS = !!(window.__CFG && window.__CFG.permitirDoisServicos);
 
@@ -132,6 +148,7 @@ async function carregarProfissionais() {
         selecionar(wrap, b);
         carregarServicos(p.id); // só os serviços DESTA profissional
         atualizarAvancar();
+        trackEvent('profissional_selecionado');
       };
       wrap.appendChild(b);
     });
@@ -170,10 +187,12 @@ async function carregarServicos(profissionalId) {
         if (PERMITIR_DOIS) {
           alternarServico(wrap, b, s); // até 2; sem auto-avanço (2º é opcional)
           atualizarAvancar();
+          if (state.servicos.length >= 1) trackEvent('servico_selecionado');
         } else {
           state.servicos = [s];
           selecionar(wrap, b);
           atualizarAvancar();
+          trackEvent('servico_selecionado');
           // avança sozinho pro horário (pequeno respiro pra mostrar o item marcado)
           clearTimeout(autoAvancoTimer);
           autoAvancoTimer = setTimeout(avancar, 200);
@@ -211,7 +230,7 @@ async function carregarHorarios() {
       b.className = 'card-pick bg-card/70 border border-blush/50 rounded-xl py-2.5 ' +
                     'text-sm text-wineDark hover:border-wine';
       b.textContent = h.label;
-      b.onclick = () => { state.horario = h; selecionar(grade, b); atualizarAvancar(); };
+      b.onclick = () => { state.horario = h; selecionar(grade, b); atualizarAvancar(); trackEvent('horario_selecionado'); };
       grade.appendChild(b);
     });
   } catch {
@@ -328,6 +347,7 @@ async function confirmar() {
         clienteTelefone: '55' + state.telefone, // E.164
         inicio: state.horario.inicio,
         fim: state.horario.fim,
+        sessaoId: SID,
       }),
     });
     const data = await r.json();
@@ -355,7 +375,7 @@ async function confirmar() {
 // Avança um passo (usado pelo botão "Avançar" e pelo clique direto no serviço).
 let autoAvancoTimer = null;
 function avancar() {
-  if (state.passo === 4) montarResumo();
+  if (state.passo === 4) { montarResumo(); trackEvent('dados_preenchidos'); }
   mostrarPasso(Math.min(state.passo + 1, 5));
   if (state.passo === 3) {
     carregarDiasDisponiveis();          // apaga no calendário os dias sem vaga p/ o serviço
@@ -509,3 +529,4 @@ if (PERMITIR_DOIS) $('servicos-hint').classList.remove('hidden'); // dica do pas
 carregarProfissionais(); // ao escolher a profissional, os serviços dela são carregados
 renderCalendario();
 mostrarPasso(1);
+trackEvent('pagina_vista');

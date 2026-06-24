@@ -76,4 +76,18 @@ if (!colServ.includes('profissional_id')) {
   db.exec('ALTER TABLE servicos ADD COLUMN profissional_id INTEGER');
 }
 
+// Migração segura: tabela de eventos de funil para métricas (rastreamento client-side).
+const tblEvt = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='eventos'").get();
+if (!tblEvt) {
+  db.exec(`
+    CREATE TABLE eventos (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      sessao_id TEXT    NOT NULL,
+      tipo      TEXT    NOT NULL,
+      criado_em TEXT    DEFAULT (datetime('now'))
+    );
+    CREATE INDEX idx_evt_tipo ON eventos (tipo, criado_em);
+  `);
+}
+
 module.exports = db;

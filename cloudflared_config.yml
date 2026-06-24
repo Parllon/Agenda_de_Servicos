@@ -1,4 +1,4 @@
-tunnel: agendamento
+﻿tunnel: agendamento
 credentials-file: /DATA/cloudflared/.cloudflared/d6f1e2aa-6d7f-49ba-b7c1-6486f80e2b4b.json
 
 ingress:
@@ -16,4 +16,8 @@ ingress:
     service: http://192.168.1.100:8094
   - hostname: studiobeleza.agendamentos.app.br
     service: http://192.168.1.100:8095
+  - hostname: barbeariasantos.agendamentos.app.br
+    service: http://192.168.1.100:8096
+  - hostname: barbeariadodudu.agendamentos.app.br
+    service: http://192.168.1.100:8098
   - service: http_status:404

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Métricas — SlotMe</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+    /* ── Header ── */
+    header {
+      background: #1a1a2e; color: #fff;
+      padding: 14px 24px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    header h1 { font-size: 1rem; font-weight: 700; letter-spacing: .02em; }
+    .header-links { display: flex; gap: 16px; align-items: center; }
+    .header-links a { color: rgba(255,255,255,.6); font-size: .8rem; text-decoration: none; }
+    .header-links a:hover { color: #fff; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      background: #fff; border-bottom: 1px solid #e2e5ea;
+      padding: 10px 24px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    .toolbar-label { font-size: .8rem; color: #666; font-weight: 500; margin-right: 4px; }
+    .btn-p {
+      border: 1px solid #d0d5dd; border-radius: 20px; padding: 5px 14px;
+      font-size: .8rem; cursor: pointer; background: #fff; color: #444;
+      transition: all .15s;
+    }
+    .btn-p:hover { border-color: #1a1a2e; color: #1a1a2e; }
+    .btn-p.ativo { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+    .sep { width: 1px; height: 20px; background: #e2e5ea; margin: 0 4px; }
+    .toolbar input[type=date] {
+      border: 1px solid #d0d5dd; border-radius: 8px; padding: 5px 10px;
+      font-size: .8rem; background: #fff; color: #444;
+    }
+
+    /* ── Layout ── */
+    main { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+    #status { font-size: .82rem; color: #888; padding: 6px 0 16px; }
+
+    .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+    /* ── Card ── */
+    .card {
+      background: #fff; border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.04);
+      overflow: hidden;
+    }
+    .card-head {
+      padding: 14px 18px; border-bottom: 1px solid #f0f2f5;
+      display: flex; align-items: baseline; gap: 8px;
+    }
+    .card-head h2 { font-size: .95rem; font-weight: 700; color: #1a1a2e; }
+    .card-head .slug { font-size: .75rem; color: #aaa; font-weight: 400; }
+    .card-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 20px; }
+
+    /* ── Total badge ── */
+    .total-row {
+      display: flex; align-items: stretch; gap: 8px;
+    }
+    .total-box {
+      flex: 1; background: #f7f9fc; border-radius: 8px; padding: 8px 12px;
+    }
+    .total-box.cancel { background: #fef2f2; }
+    .total-num { font-size: 1.4rem; font-weight: 700; color: #1a1a2e; line-height: 1; }
+    .total-box.cancel .total-num { color: #b91c1c; }
+    .total-label { font-size: .78rem; color: #666; margin-top: 2px; }
+
+    /* ── Funil ── */
+    .funil-titulo {
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: #aaa; margin-bottom: 10px;
+    }
+    .funil-step { margin-bottom: 6px; }
+    .funil-step-label {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 3px;
+    }
+    .step-name { font-size: .8rem; color: #444; }
+    .step-right { display: flex; align-items: center; gap: 8px; }
+    .step-count { font-size: .82rem; font-weight: 600; color: #1a1a2e; min-width: 32px; text-align: right; }
+    .step-pct { font-size: .72rem; font-weight: 600; padding: 1px 6px; border-radius: 10px; white-space: nowrap; min-width: 40px; text-align: center; }
+    .verde   { background: #d1fae5; color: #065f46; }
+    .amarelo { background: #fef3c7; color: #92400e; }
+    .vermelho{ background: #fee2e2; color: #991b1b; }
+    .neutro  { background: #f3f4f6; color: #9ca3af; font-size: .7rem; }
+
+    /* Barra */
+    .bar-track {
+      height: 6px; background: #f0f2f5; border-radius: 99px; overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%; border-radius: 99px;
+      transition: width .5s cubic-bezier(.4,0,.2,1);
+    }
+    .bar-verde   { background: linear-gradient(90deg, #10b981, #34d399); }
+    .bar-amarelo { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .bar-vermelho{ background: linear-gradient(90deg, #ef4444, #f87171); }
+    .bar-neutro  { background: #d1d5db; }
+
+    .sem-dados { font-size: .82rem; color: #aaa; font-style: italic; }
+
+    /* ── Login overlay ── */
+    #login-overlay {
+      position: fixed; inset: 0; background: rgba(15,15,30,.55);
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+      backdrop-filter: blur(4px);
+    }
+    #login-box {
+      background: #fff; border-radius: 16px; padding: 36px 32px; width: 340px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+    #login-box h2 { font-size: 1.1rem; margin-bottom: 6px; }
+    #login-box p  { font-size: .82rem; color: #888; margin-bottom: 22px; }
+    #login-box input {
+      width: 100%; border: 1px solid #d0d5dd; border-radius: 10px;
+      padding: 11px 14px; font-size: .9rem; margin-bottom: 12px; outline: none;
+    }
+    #login-box input:focus { border-color: #1a1a2e; }
+    #login-box button {
+      width: 100%; background: #1a1a2e; color: #fff; border: none;
+      border-radius: 10px; padding: 12px; font-size: .9rem; cursor: pointer;
+      font-weight: 600;
+    }
+    #login-box button:hover { background: #2d2d4e; }
+    #login-erro { color: #dc2626; font-size: .8rem; margin-top: 10px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<div id="login-overlay">
+  <div id="login-box">
+    <h2>SlotMe Métricas</h2>
+    <p>Acesso restrito ao dono do painel.</p>
+    <input type="password" id="senha-input" placeholder="Senha" autocomplete="current-password">
+    <button id="btn-login">Entrar</button>
+    <div id="login-erro"></div>
+  </div>
+</div>
+
+<header>
+  <h1>SlotMe — Métricas</h1>
+  <div class="header-links">
+    <a href="/">← Painel</a>
+  </div>
+</header>
+
+<div class="toolbar">
+  <span class="toolbar-label">Período:</span>
+  <button class="btn-p ativo" data-dias="7">7 dias</button>
+  <button class="btn-p" data-dias="30">30 dias</button>
+  <button class="btn-p" data-dias="90">90 dias</button>
+  <div class="sep"></div>
+  <input type="date" id="dt-inicio" title="De">
+  <input type="date" id="dt-fim" title="Até">
+</div>
+
+<main>
+  <div id="status">Carregando…</div>
+  <div class="grid" id="grid"></div>
+</main>
+
+<script>
+// ── Utilitários ──────────────────────────────────────────────────────────────
+const fmt = (n) => (n || 0).toLocaleString('pt-BR');
+const hoje  = () => new Date().toISOString().slice(0, 10);
+const atras = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+
+function classePct(p) {
+  if (p === null) return 'neutro';
+  return p >= 60 ? 'verde' : p >= 30 ? 'amarelo' : 'vermelho';
+}
+
+// ── Período ──────────────────────────────────────────────────────────────────
+let inicio = atras(7), fim = hoje();
+document.getElementById('dt-inicio').value = inicio;
+document.getElementById('dt-fim').value    = fim;
+
+document.querySelectorAll('.btn-p').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.btn-p').forEach((b) => b.classList.remove('ativo'));
+    btn.classList.add('ativo');
+    inicio = atras(+btn.dataset.dias);
+    fim    = hoje();
+    document.getElementById('dt-inicio').value = inicio;
+    document.getElementById('dt-fim').value    = fim;
+    carregar();
+  });
+});
+['dt-inicio', 'dt-fim'].forEach((id) => {
+  document.getElementById(id).addEventListener('change', (e) => {
+    if (id === 'dt-inicio') inicio = e.target.value;
+    else                    fim    = e.target.value;
+    document.querySelectorAll('.btn-p').forEach((b) => b.classList.remove('ativo'));
+    carregar();
+  });
+});
+
+// ── Renderizar barra + linha do funil ────────────────────────────────────────
+function renderStep(nome, valor, base, isFirst) {
+  const pct = (base && !isFirst) ? Math.round((valor / base) * 100) : null;
+  const cls = classePct(pct);
+  const barPct = base ? Math.round((valor / base) * 100) : (valor ? 100 : 0);
+  const barCls = 'bar-' + cls;
+
+  return `
+    <div class="funil-step">
+      <div class="funil-step-label">
+        <span class="step-name">${nome}</span>
+        <div class="step-right">
+          <span class="step-count">${fmt(valor)}</span>
+          ${pct !== null
+            ? `<span class="step-pct ${cls}">${pct}%</span>`
+            : `<span class="step-pct neutro">topo</span>`}
+        </div>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill ${barCls}" style="width:${barPct}%"></div>
+      </div>
+    </div>`;
+}
+
+// ── Renderizar a linha de cancelamentos (lógica invertida: alto % é ruim) ─────
+function renderCancelStep(cancelados, criados) {
+  const pct = criados ? Math.round((cancelados / criados) * 100) : null;
+  const barPct = criados ? Math.round((cancelados / criados) * 100) : (cancelados ? 100 : 0);
+  return `
+    <div class="funil-step">
+      <div class="funil-step-label">
+        <span class="step-name">Cancelados ✗</span>
+        <div class="step-right">
+          <span class="step-count">${fmt(cancelados)}</span>
+          ${pct !== null
+            ? `<span class="step-pct vermelho">${pct}%</span>`
+            : `<span class="step-pct neutro">—</span>`}
+        </div>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill bar-vermelho" style="width:${barPct}%"></div>
+      </div>
+    </div>`;
+}
+
+// ── Renderizar um bloco de funil (LP ou agendamento) ─────────────────────────
+function renderFunil(titulo, etapas, dados) {
+  const top = etapas[0]?.[1] || 0;
+  const algum = etapas.some(([,v]) => v > 0);
+
+  let html = `<div><div class="funil-titulo">${titulo}</div>`;
+  if (!algum) {
+    html += `<div class="sem-dados">Sem dados no período</div></div>`;
+    return html;
+  }
+  etapas.forEach(([nome, val], i) => {
+    html += renderStep(nome, val, top, i === 0);
+  });
+  // Cancelamentos: % sobre o total de agendamentos criados (confirmados + cancelados).
+  if (dados) {
+    const criados = (dados.agendamentosConfirmados || 0) + (dados.agendamentosCancelados || 0);
+    html += renderCancelStep(dados.agendamentosCancelados || 0, criados);
+  }
+  html += `</div>`;
+  return html;
+}
+
+// ── Renderizar card de um cliente ────────────────────────────────────────────
+function renderCard(slug, d) {
+  const lp = d.lp, f = d.funil;
+
+  const etapasLp = [
+    ['Visitou a landing page',    lp.lp_vista],
+    ['Clicou em Agendar',         lp.lp_clicou_agendar],
+    ['Clicou no WhatsApp',        lp.lp_clicou_whatsapp],
+  ];
+  const etapasFunil = [
+    ['Abriu a página de agendamento', f.pagina_vista],
+    ['Escolheu profissional',         f.profissional_selecionado],
+    ['Escolheu serviço',              f.servico_selecionado],
+    ['Escolheu horário',              f.horario_selecionado],
+    ['Preencheu dados',               f.dados_preenchidos],
+    ['Agendamento criado ✓',          f.agendamento_criado],
+  ];
+
+  const temDados = [...etapasLp, ...etapasFunil].some(([,v]) => v > 0);
+
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h2>${d.nome || slug}</h2>
+        <span class="slug">${slug}</span>
+      </div>
+      <div class="card-body">
+        ${temDados ? `
+          <div class="total-row">
+            <div class="total-box">
+              <div class="total-num">${fmt(d.agendamentosConfirmados)}</div>
+              <div class="total-label">confirmados no período</div>
+            </div>
+            <div class="total-box cancel">
+              <div class="total-num">${fmt(d.agendamentosCancelados)}</div>
+              <div class="total-label">cancelados no período</div>
+            </div>
+          </div>
+          ${renderFunil('Landing Page → Agendamento', etapasLp)}
+          ${renderFunil('Funil de Agendamento', etapasFunil, d)}
+        ` : `<div class="sem-dados">Sem eventos registrados no período.</div>`}
+      </div>
+    </div>`;
+}
+
+// ── Buscar e renderizar ───────────────────────────────────────────────────────
+async function carregar() {
+  const status = document.getElementById('status');
+  const grid   = document.getElementById('grid');
+  status.textContent = 'Carregando…';
+  grid.innerHTML = '';
+  try {
+    const r = await fetch(`/api/metricas?inicio=${inicio}&fim=${fim}`);
+    if (r.status === 401) { mostrarLogin(); return; }
+    if (!r.ok) throw new Error('Erro ' + r.status);
+    const dados = await r.json();
+    const slugs = Object.keys(dados).sort();
+    if (!slugs.length) { status.textContent = 'Nenhum cliente encontrado.'; return; }
+    status.textContent = `${slugs.length} cliente(s) · ${inicio} → ${fim}`;
+    grid.innerHTML = slugs.map((s) => renderCard(s, dados[s])).join('');
+  } catch (e) {
+    status.textContent = 'Erro: ' + e.message;
+  }
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+function mostrarLogin() {
+  document.getElementById('login-overlay').style.display = 'flex';
+}
+
+async function verificarSessao() {
+  const r = await fetch('/api/sessao');
+  const j = await r.json();
+  if (j.logado) {
+    document.getElementById('login-overlay').style.display = 'none';
+    carregar();
+  } else {
+    mostrarLogin();
+  }
+}
+
+document.getElementById('btn-login').addEventListener('click', async () => {
+  const senha = document.getElementById('senha-input').value;
+  const r = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ senha }),
+  });
+  if (r.ok) {
+    document.getElementById('login-overlay').style.display = 'none';
+    carregar();
+  } else {
+    document.getElementById('login-erro').textContent = 'Senha incorreta.';
+  }
+});
+document.getElementById('senha-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('btn-login').click();
+});
+
+verificarSessao();
+</script>
+</body>
+</html>

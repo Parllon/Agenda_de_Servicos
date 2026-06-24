@@ -184,6 +184,30 @@ h2 { font-size: 22px; margin: 0 0 20px; font-weight: 700; }
   outline: none;
   border-color: var(--acc);
 }
+
+.input-prefix-wrap {
+  display: flex;
+  align-items: center;
+  background: #0f1218;
+  border: 1px solid var(--linha);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.input-prefix-wrap:focus-within { border-color: var(--acc); }
+.input-prefix {
+  padding: 12px 8px 12px 14px;
+  font-size: 16px;
+  color: var(--muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+.input-prefix-wrap input {
+  border: none !important;
+  border-radius: 0 !important;
+  padding-left: 4px;
+  flex: 1;
+  min-width: 0;
+}
 .field-hint { font-size: 12px; color: var(--acc); }
 .erro { color: var(--erro); font-size: 13px; margin-top: 6px; min-height: 1.2em; }
 
@@ -484,3 +508,78 @@ h2 { font-size: 22px; margin: 0 0 20px; font-weight: 700; }
   margin-top: 12px;
   line-height: 1.5;
 }
+
+/* ── Google Calendar setup ────────────────── */
+.calendar-setup {
+  background: var(--card);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 16px;
+  text-align: left;
+  width: 100%;
+}
+.setup-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--acc);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 8px;
+}
+.setup-intro {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+.bot-email-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #0f1218;
+  border: 1px solid var(--linha);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+#bot-email-display {
+  font-size: 12px;
+  color: var(--txt);
+  word-break: break-all;
+  line-height: 1.4;
+}
+.btn-copy {
+  background: var(--acc);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  align-self: flex-start;
+}
+.btn-copy:active { filter: brightness(.88); }
+.setup-steps {
+  font-size: 13px;
+  color: var(--txt);
+  line-height: 1.7;
+  padding-left: 18px;
+  margin: 0 0 14px;
+}
+.setup-steps li { margin-bottom: 2px; }
+.setup-steps strong { color: var(--txt); }
+.setup-profs { display: flex; flex-direction: column; gap: 6px; }
+.setup-prof-row {
+  display: flex;
+  flex-direction: column;
+  background: #0f1218;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  padding: 8px 12px;
+  gap: 2px;
+}
+.setup-prof-nome { font-size: 13px; font-weight: 600; }
+.setup-prof-cal  { font-size: 12px; color: var(--acc); word-break: break-all; }

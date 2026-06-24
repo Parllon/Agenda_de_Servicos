@@ -6,7 +6,7 @@ const S = {
   slug: '',
   tema: 'tema_1',
   perfil: 'profissional',
-  negocio: { nome: '', subtitulo: '', cidade: '', whatsapp_aviso: '' },
+  negocio: { nome: '', subtitulo: '', cidade: '', rede_social: '', whatsapp_aviso: '' },
   profissionais: [],   // [{ nome, calendar_id, servicos: [{nome,duracao_min,valor}] }]
   whatsapp: {
     mode: 'central',
@@ -57,8 +57,7 @@ function esc(s) {
 function slugify(txt) {
   return txt.toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+    .replace(/[^a-z0-9]+/g, '');
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -110,7 +109,9 @@ $('form-login').addEventListener('submit', async (e) => {
 // ── Navegação entre steps ─────────────────────────────────────────
 function showStep(id) {
   document.querySelectorAll('.step').forEach((s) => s.classList.remove('active'));
-  $(id).classList.add('active');
+  const el = $(id);
+  el.removeAttribute('hidden');
+  el.classList.add('active');
 }
 
 function showWizard() {
@@ -161,10 +162,11 @@ function validateNegocio() {
     return false;
   }
   if (!cidade) { alert('Informe a cidade.'); return false; }
-  S.negocio.nome     = nome;
+  S.negocio.nome      = nome;
   S.negocio.subtitulo = $('n-subtitulo').value.trim();
-  S.negocio.cidade   = cidade;
-  S.slug             = slug;
+  S.negocio.cidade    = cidade;
+  S.negocio.rede_social = $('n-redesocial').value.trim();
+  S.slug              = slug;
   return true;
 }
 
@@ -369,7 +371,7 @@ function setupWAListeners() {
     $('wa-label-field').hidden = !e.target.checked;
   });
   $('wa-label').addEventListener('input',  (e) => { S.whatsapp.prefixo_label = e.target.value; });
-  $('wa-aviso').addEventListener('input',  (e) => { S.negocio.whatsapp_aviso = e.target.value.trim(); });
+  $('wa-aviso').addEventListener('input',  (e) => { const v = e.target.value.trim(); S.negocio.whatsapp_aviso = v ? '55' + v : ''; });
 }
 
 // ── Step 5: Horários ──────────────────────────────────────────────
@@ -434,6 +436,7 @@ function buildRevisao() {
     <div class="rev-row"><span>Nome</span><span>${esc(S.negocio.nome)}</span></div>
     ${S.negocio.subtitulo ? `<div class="rev-row"><span>Subtítulo</span><span>${esc(S.negocio.subtitulo)}</span></div>` : ''}
     <div class="rev-row"><span>Cidade</span><span>${esc(S.negocio.cidade)}</span></div>
+    ${S.negocio.rede_social ? `<div class="rev-row"><span>Rede social</span><span>${esc(S.negocio.rede_social)}</span></div>` : ''}
     <div class="rev-row"><span>Slug</span><span>${esc(S.slug)}.agendamentos.app.br</span></div>
     <div class="rev-row"><span>Tema</span><span>${tema?.nome}</span></div>
     <div class="rev-row"><span>Perfil</span><span>${perfil?.label}</span></div>
@@ -492,6 +495,7 @@ async function criarCliente() {
       nome:              S.negocio.nome,
       subtitulo:         S.negocio.subtitulo,
       cidade:            S.negocio.cidade,
+      rede_social:       S.negocio.rede_social || '',
       whatsapp_contato:  '',
       whatsapp_aviso:    S.negocio.whatsapp_aviso || '',
     },
@@ -562,13 +566,16 @@ async function criarCliente() {
     cf.avisos.push(e.message);
   }
 
-  // ── Fase 4: finalizar ────────────────────────────────
+  // ── Fase 4: aguarda containers subirem (docker roda em background) ──
   setFase('fase-final', 'ativa');
-  await sleep(800);
+  $('apply-titulo').textContent = 'Aguardando containers...';
+  await sleep(15000);
   setFase('fase-final', 'done');
 
   showSucesso(slug, url, cf, dockerOk);
 }
+
+const BOT_EMAIL = 'calendar-bot@agenda-de-servicos-498211.iam.gserviceaccount.com';
 
 function showSucesso(slug, url, cf, dockerOk) {
   $('link-cliente').href    = url;
@@ -592,8 +599,24 @@ function showSucesso(slug, url, cf, dockerOk) {
     $('aviso-reload').hidden = true;
   }
 
+  // Lista de profissionais para compartilhamento de agenda
+  $('setup-profs').innerHTML = S.profissionais.map((p) =>
+    `<div class="setup-prof-row">
+      <span class="setup-prof-nome">${esc(p.nome)}</span>
+      <span class="setup-prof-cal">${esc(p.calendar_id)}</span>
+    </div>`
+  ).join('');
+
   showStep('step-sucesso');
   $('footer-nav').hidden = true;
+}
+
+function copiarBotEmail() {
+  navigator.clipboard.writeText(BOT_EMAIL).then(() => {
+    const btn = $('btn-copy-bot-email');
+    btn.textContent = 'Copiado!';
+    setTimeout(() => { btn.textContent = 'Copiar e-mail'; }, 2000);
+  });
 }
 
 function addChip(container, label, ok) {
@@ -610,13 +633,13 @@ $('btn-novo-cliente').addEventListener('click', () => {
   S.slug  = '';
   S.tema  = 'tema_1';
   S.perfil = 'profissional';
-  S.negocio = { nome: '', subtitulo: '', cidade: '', whatsapp_aviso: '' };
+  S.negocio = { nome: '', subtitulo: '', cidade: '', rede_social: '', whatsapp_aviso: '' };
   S.profissionais = [];
   S.whatsapp = { mode: 'central', instance_proprio: '', instance_central: 'agendamento', prefixo_nome: true, prefixo_label: '' };
   S.horarios = { inicio: 9, fim: 19, folgas: [0], slot: 30, janela: 30 };
 
   // Limpa campos
-  ['n-nome', 'n-slug', 'n-subtitulo', 'n-cidade'].forEach((id) => { $(id).value = ''; });
+  ['n-nome', 'n-slug', 'n-subtitulo', 'n-cidade', 'n-redesocial'].forEach((id) => { $(id).value = ''; });
   delete $('n-slug').dataset.edited;
   $('slug-preview').textContent = '';
   $('lista-profs').innerHTML = '';
