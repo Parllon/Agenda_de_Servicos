@@ -6,7 +6,7 @@
 | **Infra** | ZimaOS (Docker) em `192.168.1.100` + Cloudflare Tunnel |
 | **Domínio** | `agendamentos.app.br` (subdomínios por cliente; ex-`deadzone.com.br`, migrado em 2026-06) |
 | **Repo** | `github.com/Parllon/Agenda_de_Servicos` (branch `main`) |
-| **Última atualização** | 2026-06-18 |
+| **Última atualização** | 2026-06-27 |
 
 > **Como ler:** se só quer colocar um cliente novo no ar, vá direto para a seção
 > **5. Manual: adicionar um cliente novo**. O resto é referência.
@@ -30,20 +30,20 @@ Sistema de agendamento online para salões de beleza. O cliente final acessa uma
 - **Uma instância por cliente** (salão): isolamento total de dados, banco e porta.
 - **Um único código** ("motor") serve todos os clientes — o que muda por cliente é a configuração.
 - **Google Calendar é a fonte da verdade** dos eventos; o SQLite existe para suportar os lembretes (idempotência).
-- **WhatsApp via Evolution API self-hosted**: custo marginal ~zero por mensagem (vs. Cloud API que cobra por conversa/template).
+- **WhatsApp via WAHA self-hosted** (whatsapp-web.js + Chromium): custo marginal ~zero por mensagem (vs. Cloud API que cobra por conversa/template).
 
-### 1.3 Clientes no ar (2026-06-13)
+### 1.3 Clientes no ar (2026-06-27)
 
 | Slug | Porta | Tema | Status |
 |---|---|---|---|
 | `bya` | 8090 | tema_1 | Em produção |
 | `navalha_de_ouro` | 8091 | tema_2 | Ativo |
-| `carol.figueira` | — | — | Criado, verificar |
-| `barbearia_joao` | — | — | Criado, verificar |
+| `julia_macedo` | 8092 | — | Ativo |
+| `studio_beleza` | 8095 | — | Ativo |
 
 **Pendências críticas:**
 - **Julia** (2ª prof. da Bya), **Rafael** e **Diego** (Navalha) têm `calendar_id` placeholder → horários aparecem mas a confirmação falha. Precisa de agenda Google real compartilhada com a service account.
-- Telegram e mensagens customizadas foram implementados recentemente — conferir se rebuild + `up -d` foi feito em todos os clientes.
+- Erro 463 (NackCallerReachoutTimelocked): clientes que nunca enviaram mensagem para o número central 5521984156366 não recebem o WhatsApp de confirmação. Solução: pedir que o cliente envie uma mensagem primeiro para o número. Não é bug de código — é restrição de conta no servidor da Meta.
 
 ---
 
@@ -57,7 +57,7 @@ A decisão central: **o código nunca sabe qual cliente está servindo**. Quem d
 |---|---|---|---|
 | **Motor** | `/app` | Todo o código Node.js | Você, ao corrigir bugs / adicionar features |
 | **Config do cliente** | `/clientes/<slug>` | `.env`, `dados.json`, `fotos/`, `banco_dados/` | Ao onboarbar / ajustar um cliente |
-| **WhatsApp global** | `/Evolution_Global` | Evolution API + Postgres | Raramente |
+| **WhatsApp global** | `/waha` | WAHA (container Docker) | Raramente — só para reconectar sessão |
 
 Benefício: corrigiu um bug → rebuild da imagem uma vez → **todos os clientes recebem a correção**.
 
@@ -65,9 +65,9 @@ Benefício: corrigiu um bug → rebuild da imagem uma vez → **todos os cliente
 
 ```
 ~/Agendamento/
-├── Evolution_Global/           # WhatsApp central (Evolution API + Postgres)
-│   ├── docker-compose.yml
-│   └── .env                    # EVOLUTION_API_KEY + CONFIG_SESSION_PHONE_VERSION
+├── waha/                       # WhatsApp central (WAHA — devlikeapro/waha)
+│   ├── docker-compose.yml      # porta 21465 externa, rede agenda-net
+│   └── sessions/               # sessão persistida (NÃO versionar — fora do Git)
 │
 ├── app/                        # O MOTOR — buildado como motor-agendamento:v1
 │   ├── public/                 # frontend (index.html, app.js, styles.css, fotos/)
@@ -106,7 +106,7 @@ Benefício: corrigiu um bug → rebuild da imagem uma vez → **todos os cliente
 ### 2.3 Como as peças se conectam
 
 - **Imagem única:** `app/Dockerfile` → `motor-agendamento:v1`. O `docker-compose.yml` de cada cliente **não faz build** — apenas referencia essa imagem.
-- **Rede `agenda-net`:** rede Docker externa compartilhada. Permite que o app de um cliente alcance a Evolution pelo nome `evolution-api`, e que a Evolution alcance o webhook pelo nome `<slug>-app`.
+- **Rede `agenda-net`:** rede Docker externa compartilhada. Permite que o motor acesse o WAHA pelo nome `waha`, e que o WAHA acesse o webhook-dispatcher pelo mesmo nome de container.
 - **Tema:** a variável `TEMA` no `.env` do cliente escolhe o visual (`tema_1` a `tema_8`). O `server.js` injeta as variáveis CSS no `<head>` — nenhuma classe HTML muda, só os valores.
 - **Ficha do cliente (`dados.json`):** fonte única dos dados. O `seed.js` lê dela para popular o banco; o `server.js` lê o bloco `negocio` para o frontend.
 - **Cloudflare Tunnel:** porta externa única por cliente → subdomínio próprio.
@@ -115,9 +115,9 @@ Benefício: corrigiu um bug → rebuild da imagem uma vez → **todos os cliente
 
 O cron de lembretes precisa marcar quais lembretes já foram enviados (idempotência). O Calendar não oferece esse campo. A coluna `lembrete_enviado` no SQLite resolve isso sem depender de outro servidor de banco.
 
-### 2.5 Por que Evolution (self-hosted) e não WhatsApp Cloud API?
+### 2.5 Por que WAHA (self-hosted) e não WhatsApp Cloud API?
 
-A Cloud API cobra por conversa/template — corrói a margem à medida que o volume cresce. Com a Evolution rodando no ZimaOS, o custo marginal por mensagem é praticamente zero. O trade-off: a sessão do WhatsApp Web expira periodicamente e precisa ser renovada (ver seção 13).
+A Cloud API cobra por conversa/template — corrói a margem à medida que o volume cresce. Com o WAHA rodando no ZimaOS, o custo marginal por mensagem é praticamente zero. O trade-off: a sessão expira se o celular ficar sem internet, e novos contatos que nunca enviaram mensagem para o número ficam bloqueados (erro 463 da Meta — ver §1.3 e §8.2).
 
 ---
 
@@ -129,7 +129,7 @@ A Cloud API cobra por conversa/template — corrói a margem à medida que o vol
 | Banco de dados | SQLite (`better-sqlite3`, modo WAL) |
 | Frontend | HTML + Tailwind CSS (CDN) + Vanilla JS |
 | Integração agenda | Google Calendar API (`googleapis`) via Service Account JWT |
-| Integração WhatsApp | Evolution API v2.3.7 (`evoapicloud/evolution-api:v2.3.7`) |
+| Integração WhatsApp | WAHA (`devlikeapro/waha`, engine WEBJS — whatsapp-web.js + Chromium) |
 | Avisos internos | Telegram Bot API |
 | Lembretes | `node-cron` (processo separado do server) |
 | Containerização | Docker + Docker Compose |
@@ -171,17 +171,16 @@ DB_PATH=/data/agendamentos.db
 # --- Google Calendar ---
 # (credentials.json montado pelo docker-compose.yml — não precisa de var aqui)
 
-# --- WhatsApp: envio ao cliente final (Evolution) ---
-WHATSAPP_PROVIDER=evolution
-WHATSAPP_API_URL=http://evolution-api:8080        # nome na rede agenda-net
-WHATSAPP_API_TOKEN=<chave mestre da Evolution>    # = EVOLUTION_API_KEY do Evolution_Global/.env
-WHATSAPP_INSTANCE=bya                             # instância do salão (modo proprio)
+# --- WhatsApp: modo de envio (ver §8.5) ---
+WHATSAPP_MODE=central                             # central (todos via WAHA) | desativado
+WHATSAPP_INSTANCE_CENTRAL=agendamento             # sessão WAHA; só usada se WHATSAPP_MODE=central
+WHATSAPP_PREFIXO_NOME=true                        # true = prefixa "[Label] " na mensagem (modo central)
+WHATSAPP_PREFIXO_LABEL=Bya                        # texto do prefixo; vazio = usa o slug CLIENTE
 
-# --- WhatsApp: modo de envio (ver §8.6) ---
-WHATSAPP_MODE=proprio                             # proprio (padrão) | central
-WHATSAPP_INSTANCE_CENTRAL=slotme_central          # instância central; só usada se WHATSAPP_MODE=central
-WHATSAPP_PREFIXO_NOME=false                       # true = prefixa "[Label] " na mensagem (modo central)
-WHATSAPP_PREFIXO_LABEL=                           # texto do prefixo; vazio = usa o slug CLIENTE
+# --- WAHA (WhatsApp HTTP API — self-hosted) ---
+WAHA_URL=http://waha:3000                         # hostname na rede agenda-net
+WAHA_API_KEY=slotme-waha-2026                     # X-Api-Key do WAHA (definida no docker-compose do waha/)
+WAHA_SESSION=agendamento                          # nome da sessão pareada no WAHA
 
 # --- WhatsApp: aviso interno à dona (instância dedicada, só envio — ver §8.7) ---
 WHATSAPP_INSTANCE_AVISOS=                         # instância que envia avisos à dona; vazio = usa a de envio
@@ -269,7 +268,7 @@ Cada cliente tem seu próprio `docker-compose.yml` que **não faz build** — us
 ### Pré-requisitos (verificar uma vez)
 - Imagem `motor-agendamento:v1` construída.
 - Rede `agenda-net` criada (`docker network create agenda-net`).
-- Evolution global no ar (`Evolution_Global` rodando).
+- WAHA no ar e sessão `agendamento` com status **WORKING** (ver §8.1).
 
 ### Passo 1 — Criar a estrutura (1 comando)
 
@@ -305,19 +304,24 @@ Para **cada profissional**:
 
 ### Passo 4 — WhatsApp (se o plano incluir)
 
-Decida o **modo** (Bloco 4 do checklist) e ajuste `WHATSAPP_MODE` no `.env`.
+Todos os clientes usam **modo central** — um único número (WAHA) atende todos. Não é necessário parear número por cliente.
 
-**Modo próprio** (`WHATSAPP_MODE=proprio`, padrão):
-1. No manager da Evolution (`http://192.168.1.100:8080/manager`): crie uma instância com nome **exatamente igual** ao `WHATSAPP_INSTANCE` do `.env` e conecte o número (QR Code).
-2. Configure o **webhook** da instância:
-   - **URL:** `http://<slug>-app:3000/webhook-whatsapp` (porta **3000**, que é a interna)
-   - **Evento:** `MESSAGES_UPSERT` (sem isso o cliente não consegue responder 1/2/3). Ver §8.4.
+No `.env` do cliente, garanta:
+```env
+WHATSAPP_MODE=central
+WHATSAPP_INSTANCE_CENTRAL=agendamento
+WHATSAPP_PREFIXO_NOME=true
+WHATSAPP_PREFIXO_LABEL=<Nome do Salão>
+WAHA_URL=http://waha:3000
+WAHA_API_KEY=slotme-waha-2026
+WAHA_SESSION=agendamento
+```
 
-**Modo central** (`WHATSAPP_MODE=central`):
-1. Não pareia nada do cliente — ele usa a instância central já no ar (`WHATSAPP_INSTANCE_CENTRAL`) e o dispatcher de respostas. Setup único em **§8.6**.
-2. Identifique o salão: `WHATSAPP_PREFIXO_NOME=true` + `WHATSAPP_PREFIXO_LABEL=<etiqueta>` no `.env`, e `negocio.whatsapp_contato` no `dados.json` (link "fale com a gente" no rodapé).
+No `dados.json`, preencha `negocio.whatsapp_contato` com o número do salão (exibido no rodapé da landing page como link de contato direto).
 
-**Aviso à dona por WhatsApp** (opcional, qualquer modo): `negocio.whatsapp_aviso` no `dados.json` + `WHATSAPP_INSTANCE_AVISOS` no `.env`. Ver **§8.7**.
+O webhook-dispatcher já encaminha as respostas (1/2/3) para o container correto — não é preciso configurar nada adicional. Ver **§8.5**.
+
+**Aviso à dona por WhatsApp** (opcional): `negocio.whatsapp_aviso` no `dados.json`. Ver **§8.6**.
 
 ### Passo 5 — Telegram (opcional)
 
@@ -446,104 +450,91 @@ sudo env DOCKER_CONFIG=/DATA/.docker docker logs --tail 50 <slug>-app
 
 ---
 
-## 8. WhatsApp (Evolution)
+## 8. WhatsApp (WAHA)
 
-### 8.1 Arquitetura
+### 8.1 Arquitetura e credenciais
 
-- **Uma** Evolution API para todos os clientes (`Evolution_Global`, porta 8080).
-- Cada cliente tem uma **instância** dentro dela (nome = `WHATSAPP_INSTANCE` do `.env`).
-- Painel: `http://192.168.1.100:8080/manager`
-- Envio: `whatsapp.js` chama `WHATSAPP_API_URL/message/sendText/<instância>` com header `apikey: WHATSAPP_API_TOKEN`.
-- Recebimento: Evolution chama o webhook `http://<slug>-app:3000/webhook-whatsapp` a cada mensagem recebida.
-- **Modos de envio:** `WHATSAPP_MODE=proprio` (cada salão no seu número) ou `central` (um número único do SlotMe para todos). Ver **§8.6**.
+- **Um** container WAHA para todos os clientes (pasta `waha/`, porta externa 21465).
+- Engine: **WEBJS** (whatsapp-web.js + Chromium).
+- Número pareado: **5521984156366**.
+- Sessão: `agendamento`.
+- API Key: `slotme-waha-2026` (header `X-Api-Key` em todas as chamadas).
+- Dashboard: `http://192.168.1.100:21465/dashboard` — apenas visual; não reflete o estado real da sessão. Use a API para verificar.
 
-> `WHATSAPP_API_TOKEN` no `.env` do cliente deve ser **a mesma chave** que `EVOLUTION_API_KEY` no `Evolution_Global/.env`.
+**Verificar status da sessão:**
+```bash
+curl -s http://localhost:21465/api/sessions/agendamento \
+  -H 'X-Api-Key: slotme-waha-2026' | grep status
+# "status":"WORKING" = OK
+```
 
-### 8.2 Comportamento humano (anti-ban)
+**Fluxo:**
+- **Outbound:** `whatsapp.js` → `POST /api/sendText` no WAHA → WhatsApp.
+- **Inbound:** WhatsApp → WAHA webhook → `webhook-dispatcher` → clientes.
 
-O `whatsapp.js` implementa 5 camadas para evitar banimento:
-1. **Delay aleatório** antes de enviar (padrão 3–12 s via `ENVIO_DELAY_MIN_MS` / `ENVIO_DELAY_MAX_MS`)
-2. **"Digitando…"** via `sendPresence` antes da mensagem (`ENVIO_DIGITANDO_MIN_MS` / `ENVIO_DIGITANDO_MAX_MS`)
-3. **Lote espaçado**: uma mensagem de cada vez com intervalo aleatório (padrão 30–120 s via `ENVIO_LOTE_MIN_MS` / `ENVIO_LOTE_MAX_MS`)
-4. **Variação de texto**: `mensagens.js` sorteia entre múltiplas frases por tipo
-5. **Janela de horário**: não envia fora do horário `ENVIO_HORA_INICIO`–`ENVIO_HORA_FIM` (padrão 8h–21h)
+### 8.2 Limitação: erro 463 (NackCallerReachoutTimelocked)
 
-> Os delays são configuráveis pelo `.env`. **Não reduzir em produção** — valores muito baixos aumentam o risco de banimento.
+O número 5521984156366 **não consegue iniciar conversa** com contatos que nunca mandaram mensagem para ele. A Meta bloqueia com erro 463 (reach-out time-lock). Isso afeta todos os motores não-oficiais (WAHA, Evolution, Baileys…) — não é solucionável em código.
 
-### 8.3 Webhook (respostas 1/2/3)
+**Solução para clientes que não recebem:** pedir que enviem qualquer mensagem para o número **5521984156366** antes do agendamento. Após a primeira mensagem do cliente, as mensagens automáticas passam normalmente.
+
+### 8.3 WhatsApp LID (@lid)
+
+O WhatsApp migrou o identificador interno de `@c.us` (número de telefone) para `@lid` (ID opaco). O WAHA recebe webhooks com `payload.from` em formato LID (ex.: `247647864668171@lid`). O `server.js` resolve automaticamente: quando `from` termina em `@lid`, chama `GET /api/{session}/contacts/{lid}` no WAHA para obter o número real (`@c.us`). Nenhuma configuração extra necessária.
+
+### 8.4 Webhook (respostas 1/2/3)
 
 O endpoint `POST /webhook-whatsapp` processa:
 - `1` → confirma o agendamento (atualiza status no banco + responde ao cliente)
 - `2` → reagendar: remove o evento do Calendar + avisa cliente com o link para remarcar
 - `3` → cancelar: remove o evento do Calendar + avisa cliente
 
-A Evolution precisa ter o evento **MESSAGES_UPSERT** configurado no webhook da instância. Sem ele, as respostas dos clientes não chegam.
+O WAHA envia o evento `message` a cada mensagem recebida. O **dispatcher** repassa para todos os containers em modo central — só o dono do telefone responde.
 
-### 8.4 Configurar webhook de uma instância
+### 8.5 Modo central + dispatcher (fan-out)
 
+Um **único número** (5521984156366) atende todos os salões — sem parear número por cliente.
+
+**Envio:** `whatsapp.js` chama o WAHA com a sessão `WHATSAPP_INSTANCE_CENTRAL`. Como todos recebem do mesmo número, a mensagem é prefixada: `WHATSAPP_PREFIXO_NOME=true` + `WHATSAPP_PREFIXO_LABEL` adicionam `[Bya]` etc. O rodapé com `negocio.whatsapp_contato` exibe o link de contato direto do salão (ver §11.2).
+
+**Recebimento:** o WAHA tem **um** webhook (`http://webhook-dispatcher:3000/webhook-whatsapp`). O dispatcher relê os `.env` de todos os clientes a cada mensagem e encaminha para cada `<slug>-app:3000/webhook-whatsapp`. Só o container dono do telefone processa — os outros descartam silenciosamente.
+
+Ativar um cliente no modo central: setar as vars WAHA no `.env` e `WHATSAPP_MODE=central` + `docker compose up -d --force-recreate`. O dispatcher o inclui automaticamente.
+
+**Configurar webhook no WAHA** (já está configurado — apenas para referência):
 ```bash
-curl -X POST http://localhost:8080/webhook/set/<instância> \
-  -H "apikey: <EVOLUTION_API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"webhook":{"enabled":true,"url":"http://<slug>-app:3000/webhook-whatsapp","events":["MESSAGES_UPSERT"]}}'
+curl -X PUT http://localhost:21465/api/agendamento/webhook \
+  -H 'X-Api-Key: slotme-waha-2026' \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"http://webhook-dispatcher:3000/webhook-whatsapp","events":["message"]}'
 ```
 
-### 8.5 Recriar instância (após atualizar versão do WhatsApp Web)
+### 8.6 Aviso à dona por WhatsApp
 
-```bash
-curl -X DELETE http://localhost:8080/instance/delete/<instância> -H "apikey: <EVOLUTION_API_KEY>"
-curl -X POST   http://localhost:8080/instance/create \
-  -H "apikey: <EVOLUTION_API_KEY>" -H "Content-Type: application/json" \
-  -d '{"instanceName":"<instância>","integration":"WHATSAPP-BAILEYS"}'
-# depois reconectar via QR no manager
-```
-
-### 8.6 Modo central + dispatcher (fan-out)
-
-No modo central (`WHATSAPP_MODE=central`) um **único número do SlotMe** atende todos os
-salões — baixa o custo de onboarding (o cliente não pareia número) e atende quem não
-quer expor o próprio WhatsApp.
-
-**Envio:** `whatsapp.js` usa `WHATSAPP_INSTANCE_CENTRAL` no lugar de `WHATSAPP_INSTANCE`.
-Como todos recebem do mesmo número, a mensagem é identificada: `WHATSAPP_PREFIXO_NOME=true`
-+ `WHATSAPP_PREFIXO_LABEL` prefixam `[Bya]`, e o rodapé com `negocio.whatsapp_contato` dá
-o link de contato (ver §11.2).
-
-**Recebimento:** a instância central tem **um** webhook, mas cada cliente tem o seu
-container. O **dispatcher** (`app/webhook-dispatcher.js`, container `webhook-dispatcher`)
-recebe o webhook da central e repassa para todos os containers em modo central (descobre
-lendo `clientes/*/.env`). Só o container dono do telefone responde — os outros ficam em
-silêncio (blindagem no `server.js`).
-
-Setup (uma vez por servidor):
-1. Criar/parear a instância central (ex.: `slotme_central`) no manager.
-2. Subir o dispatcher:
-   ```bash
-   cd ~/Agendamento/dispatcher
-   sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d
-   ```
-3. Apontar o webhook da instância central para o dispatcher:
-   ```bash
-   curl -X POST http://localhost:8080/webhook/set/slotme_central \
-     -H "apikey: <EVOLUTION_API_KEY>" -H "Content-Type: application/json" \
-     -d '{"webhook":{"enabled":true,"url":"http://webhook-dispatcher:3000/webhook-whatsapp","events":["MESSAGES_UPSERT"]}}'
-   ```
-
-> Ativar um cliente no central: pôr `WHATSAPP_MODE=central` (+ prefixo/contato) no `.env`/
-> `dados.json` dele e `docker compose up -d --force-recreate`. O dispatcher passa a incluí-lo
-> automaticamente (relê os `.env` a cada mensagem). Limitação: se a mesma pessoa for cliente
-> de dois salões em central com agendamento ativo, os dois respondem ao "1".
-
-### 8.7 Aviso à dona por WhatsApp
-
-Além do Telegram (§11.3), o salão pode receber os avisos (novo / cancelado / remarcado)
-no **WhatsApp da dona**:
+Além do Telegram (§11.3), o salão pode receber os avisos (novo / cancelado / remarcado) no **WhatsApp da dona**:
 - **Destino:** `negocio.whatsapp_aviso` no `dados.json` (vazio = desativado).
-- **Instância de envio:** `WHATSAPP_INSTANCE_AVISOS` no `.env` — pareie um número
-  **dedicado** na Evolution. Vazio = usa a instância de envio do cliente.
-- É só **envio** (one-way): **não precisa webhook** nessa instância. O aviso sai imediato,
-  sem o prefixo `[Label]`. Telegram e WhatsApp funcionam em paralelo (configure um, o outro,
-  ou os dois).
+- O aviso sai pelo mesmo número central, sem o prefixo `[Label]`.
+- Telegram e WhatsApp funcionam em paralelo.
+
+### 8.7 Reconectar sessão (QR Code)
+
+Se a sessão expirar (celular sem internet, troca de número etc.):
+
+```bash
+# 1) Verificar se realmente caiu
+curl -s http://localhost:21465/api/sessions/agendamento \
+  -H 'X-Api-Key: slotme-waha-2026' | grep status
+
+# 2) Reiniciar sessão
+curl -X POST http://localhost:21465/api/sessions/agendamento/restart \
+  -H 'X-Api-Key: slotme-waha-2026'
+
+# 3) Baixar QR (não abre no browser — exige o header X-Api-Key)
+curl -H 'X-Api-Key: slotme-waha-2026' \
+  http://localhost:21465/api/agendamento/auth/qr \
+  -o /DATA/Agendamento/Imagens_contexto/waha-qr.png
+# Abrir \\192.168.1.100\Agendamento\Imagens_contexto\waha-qr.png e escanear
+```
 
 ---
 
@@ -680,10 +671,11 @@ O `TELEGRAM_BOT_TOKEN` no `.env` do cliente ativa o recurso. Deixar vazio = Tele
 | `requires exactly 1 argument` no `docker build` | Faltou o `.` no fim do comando | `docker build -t motor-agendamento:v1 .` |
 | `mkdir /root/.docker: read-only file system` | Faltou o `DOCKER_CONFIG` | Prefixar com `sudo env DOCKER_CONFIG=/DATA/.docker docker ...` |
 | `Permission denied` em qualquer comando | Faltou `sudo` | Adicionar `sudo` |
-| WhatsApp envia mas **não entrega** | Versão do WhatsApp Web (Baileys) expirada no `CONFIG_SESSION_PHONE_VERSION` | Atualizar a versão, recriar a instância e parear de novo (ver §13) |
-| WhatsApp retorna **401** | `WHATSAPP_API_TOKEN` ausente ou diferente da chave da Evolution | Colocar a mesma chave do `Evolution_Global/.env` + `up -d --force-recreate` |
-| WhatsApp retorna **404** | `WHATSAPP_INSTANCE` ≠ nome da instância no manager | Igualar os dois nomes |
-| Webhook não recebe respostas `1/2/3` | Evento `MESSAGES_UPSERT` desligado, ou URL do webhook com container errado | Configurar webhook: URL `http://<slug>-app:3000/webhook-whatsapp` + evento `MESSAGES_UPSERT` |
+| WhatsApp **não entrega** para um contato específico | Erro 463 (reach-out time-lock): contato nunca enviou mensagem primeiro | Pedir que o cliente envie qualquer mensagem para 5521984156366 antes de agendar (ver §8.2) |
+| WAHA retorna **401** | `WAHA_API_KEY` ausente ou incorreta no `.env` do cliente | Confirmar que `WAHA_API_KEY=slotme-waha-2026` + `up -d --force-recreate` |
+| WAHA retorna **404** na sessão | Sessão `agendamento` não existe ou não iniciou | `POST /api/sessions/agendamento/restart` (ver §8.7) |
+| Webhook não recebe respostas `1/2/3` | WAHA não tem webhook configurado, ou dispatcher não está no ar | Verificar webhook via `GET /api/agendamento/webhook` e dispatcher com `docker logs webhook-dispatcher` |
+| Dashboard WAHA mostra "0 sessions" | Bug cosmético do dashboard — não afeta funcionamento | Ignorar; verificar estado real via `GET /api/sessions/agendamento` (ver §8.1) |
 | Horário aparece mas **confirmação falha** | `calendar_id` placeholder ou agenda não compartilhada com a SA | Compartilhar agenda real com a SA + corrigir o `calendar_id` + `atualizar-cliente.sh` |
 | Script `.sh` → `bad interpreter` no Linux | Arquivo salvo com fim de linha CRLF (Windows) | `.gitattributes` garante LF; se já corrompido: `sed -i 's/\r//' arquivo.sh` |
 | `up` recusa por porta | `PORTA_EXTERNA` repetida com outro cliente | Usar porta única |
@@ -697,9 +689,9 @@ O `TELEGRAM_BOT_TOKEN` no `.env` do cliente ativa o recurso. Deixar vazio = Tele
 
 | Item | Prazo / Frequência | Ação |
 |---|---|---|
-| **`CONFIG_SESSION_PHONE_VERSION`** no `Evolution_Global/.env` | Expira ~**02/08/2026** | Pegar a versão atual em `wppconnect.io/pt-BR/whatsapp-versions` (sem sufixo `-alpha`). Atualizar o `.env` → `up -d --force-recreate` da Evolution → recriar instância → parear via QR. |
+| **Sessão WAHA** | Se o celular ficar offline por muito tempo | Verificar status via `GET /api/sessions/agendamento`. Se não estiver `WORKING`, reconectar via QR (ver §8.7). |
 | **Backup dos bancos** | Periódico | Copiar `clientes/*/banco_dados/` para local seguro. Perder isso = perder o histórico e as flags de lembrete enviado de todos os clientes. |
-| **App do WhatsApp no celular** | Sempre que reconectar | Manter atualizado para evitar conflito de versão de sessão com o Baileys. |
+| **App do WhatsApp no celular** | Manter atualizado | Manter o app atualizado no celular pareado — versão desatualizada pode encerrar a sessão WAHA. |
 | **Fotos dos profissionais** | Sempre que adicionar / trocar | `clientes/*/fotos/` não está no Git — fazer backup separado. |
 | **Git** | Antes de cada commit | `git status` para confirmar que `.env`, `credentials.json`, `banco_dados/`, `dados.json` reais e `fotos/` **não aparecem** na lista. |
 
@@ -742,9 +734,16 @@ sudo nano /etc/cloudflared/config.yml
 sudo systemctl restart cloudflared
 sudo systemctl status cloudflared
 
-# ===== EVOLUTION GLOBAL =====
-cd ~/Agendamento/Evolution_Global
-sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d
+# ===== WAHA =====
+# Verificar sessão:
+curl -s http://localhost:21465/api/sessions/agendamento -H 'X-Api-Key: slotme-waha-2026' | grep status
+
+# Reiniciar sessão (se não estiver WORKING):
+curl -X POST http://localhost:21465/api/sessions/agendamento/restart -H 'X-Api-Key: slotme-waha-2026'
+
+# Baixar QR para reconectar:
+curl -H 'X-Api-Key: slotme-waha-2026' http://localhost:21465/api/agendamento/auth/qr \
+  -o /DATA/Agendamento/Imagens_contexto/waha-qr.png
 
 # ===== GIT =====
 git status                   # conferir que não há segredos/fotos na lista

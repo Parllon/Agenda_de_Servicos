@@ -106,16 +106,16 @@ async function enviarPresenca(telefone, ms, instancia = instanciaAtiva()) {
 
 /** Faz a chamada crua de envio (sem delays). Mantém o switch de provider. */
 async function _postEnvio(telefone, mensagem, digitandoMs, instancia = instanciaAtiva()) {
-  // Modo central via wa-sender (whatsapp-web.js): emissor central único, fora do
-  // Baileys/Evolution (que a Meta passou a barrar). Quando WA_SENDER_URL está
-  // configurado, todo envio central vai por ele; a fila/gap globais vivem lá.
-  const waSender = process.env.WA_SENDER_URL;
-  if (MODE === 'central' && waSender) {
+  // Modo central via WAHA (whatsapp-web.js engine WEBJS). Quando WAHA_URL está
+  // configurado, todo envio central vai por ele.
+  const wahaUrl = process.env.WAHA_URL;
+  if (MODE === 'central' && wahaUrl) {
+    const session = process.env.WAHA_SESSION || 'agendamento';
     const resp = await axios.post(
-      `${waSender.replace(/\/$/, '')}/send`,
-      { number: telefone, message: mensagem },
+      `${wahaUrl.replace(/\/$/, '')}/api/sendText`,
+      { chatId: `${telefone}@c.us`, text: mensagem, session },
       {
-        headers: { 'Content-Type': 'application/json', 'x-token': process.env.WA_SENDER_TOKEN || '' },
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': process.env.WAHA_API_KEY || '' },
         timeout: 15000,
       }
     );
@@ -151,6 +151,10 @@ async function _postEnvio(telefone, mensagem, digitandoMs, instancia = instancia
  * @param {boolean} [opts.semPrefixo=false]       - não aplica o prefixo [Label]
  */
 async function enviarWhatsapp(telefone, mensagem, opts = {}) {
+  if (MODE === 'desativado') {
+    return { ok: false, desativado: true };
+  }
+
   if (opts.respeitarHorario && !dentroDoHorario()) {
     console.log('[WhatsApp] fora do horario comercial - envio adiado:', telefone);
     return { ok: false, adiado: true };

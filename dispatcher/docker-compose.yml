@@ -1,18 +1,16 @@
-# docker-compose.yml — WEBHOOK DISPATCHER (fan-out do WhatsApp central).
+# docker-compose.yml — WEBHOOK DISPATCHER (fan-out do WhatsApp inbound).
 # NÃO faz build: usa a imagem única motor-agendamento:v1 (a mesma dos clientes),
 # só troca o comando para rodar o webhook-dispatcher.js embutido nela.
 #
-# Função: recebe o webhook da instância CENTRAL da Evolution (slotme_central) e
-# repassa pros containers dos clientes que estão em WHATSAPP_MODE=central. Ele
-# descobre esses clientes sozinho, lendo clientes/*/.env (montado read-only).
+# Função: recebe o webhook do provedor de WhatsApp central e repassa pros containers
+# dos clientes que estão em WHATSAPP_MODE=central. Descobre esses clientes lendo
+# clientes/*/.env (montado read-only).
 #
 # Subir (de dentro desta pasta):
 #   sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d
 #
-# Depois, apontar o webhook da instância central pra cá (UMA vez):
-#   curl -X POST http://localhost:8080/webhook/set/slotme_central \
-#     -H "apikey: <EVOLUTION_API_KEY>" -H "Content-Type: application/json" \
-#     -d '{"webhook":{"url":"http://webhook-dispatcher:3000/webhook-whatsapp","events":["MESSAGES_UPSERT"]}}'
+# NOTA: WhatsApp desativado desde 2026-06-27. Este dispatcher permanece no ar mas
+# não recebe eventos até um novo provedor ser configurado.
 
 services:
   dispatcher:
@@ -28,7 +26,7 @@ services:
     networks:
       - agenda-net
 
-# Mesma rede compartilhada com a Evolution e com os containers dos clientes.
+# Rede compartilhada com os containers dos clientes.
 networks:
   agenda-net:
     external: true

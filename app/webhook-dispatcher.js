@@ -13,7 +13,7 @@
 // agenda-net, alcançando os containers pelo nome <CLIENTE>-app:3000.
 //
 // Configurar o webhook da instância central UMA vez (apontando pra cá):
-//   curl -X POST http://localhost:8080/webhook/set/slotme_central \
+//   curl -X POST http://localhost:8080/webhook/set/agendamento \
 //     -H "apikey: <EVOLUTION_API_KEY>" -H "Content-Type: application/json" \
 //     -d '{"webhook":{"url":"http://webhook-dispatcher:3000/webhook-whatsapp","events":["MESSAGES_UPSERT"]}}'
 

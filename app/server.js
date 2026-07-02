@@ -559,35 +559,55 @@ app.post('/webhook-whatsapp', (req, res, next) => {
   try {
     const body = req.body || {};
 
-    // Filtro de evento TOLERANTE: a Evolution pode mandar 'messages.upsert',
-    // 'MESSAGES_UPSERT' ou variações. Normaliza antes de comparar.
-    const evento = String(body.event || '').toLowerCase().replace(/_/g, '.');
-    console.log('[webhook] recebido. event =', JSON.stringify(body.event), '-> normalizado:', evento);
-    if (evento !== 'messages.upsert') {
-      console.log('[webhook] ignorado (evento não é messages.upsert)');
+    // Filtro de evento WAHA: só processa "message" (mensagens recebidas).
+    const evento = String(body.event || '').toLowerCase();
+    console.log('[webhook] recebido. event =', JSON.stringify(body.event));
+    if (evento !== 'message') {
+      console.log('[webhook] ignorado (evento não é message)');
       return;
     }
 
-    const data = body.data || {};
-    const key = data.key || {};
+    const payload = body.payload || {};
 
-    // Ignora mensagens enviadas pela própria manicure (evita loop) e grupos.
-    if (key.fromMe) {
+    // WAHA com evento "message" já filtra fromMe=true, mas verificamos por segurança.
+    if (payload.fromMe) {
       console.log('[webhook] ignorado (fromMe = true)');
       return;
     }
-    const remoteJid = key.remoteJid || '';
-    if (!remoteJid.includes('@s.whatsapp.net')) {
-      console.log('[webhook] ignorado (não é conversa 1:1):', remoteJid);
+
+    const from = payload.from || '';
+
+    // WhatsApp migrou para LID (@lid) em vez de @c.us. Quando necessário, resolve
+    // via API de contatos do WAHA para obter o número real do remetente.
+    let phone;
+    if (from.endsWith('@c.us')) {
+      phone = from.split('@')[0];
+    } else if (from.endsWith('@lid')) {
+      try {
+        const wahaBase = (process.env.WAHA_URL || 'http://waha:3000').replace(/\/$/, '');
+        const session = process.env.WAHA_SESSION || 'agendamento';
+        const r = await fetch(`${wahaBase}/api/${session}/contacts/${encodeURIComponent(from)}`, {
+          headers: { 'X-Api-Key': process.env.WAHA_API_KEY || '' },
+        });
+        const contact = await r.json();
+        phone = (contact.id || '').split('@')[0];
+      } catch (e) {
+        console.log('[webhook] falha ao resolver LID:', from, e.message);
+        return;
+      }
+    } else {
+      // Grupos (@g.us) e outros — ignorar
+      console.log('[webhook] ignorado (não é conversa 1:1):', from);
       return;
     }
 
-    // Número no mesmo formato salvo no banco: 55 + DDD + número
-    const phone = remoteJid.split('@')[0].split(':')[0];
+    if (!phone) {
+      console.log('[webhook] ignorado (phone vazio após resolução LID)');
+      return;
+    }
 
-    // Texto: mensagem simples vem em conversation; texto "longo" em extendedTextMessage.
-    const msg = data.message || {};
-    const texto = (msg.conversation || msg.extendedTextMessage?.text || '').trim();
+    // Texto da mensagem
+    const texto = (payload.body || '').trim();
     console.log(`[webhook] de ${phone} | texto: "${texto}"`);
     if (!['1', '2', '3'].includes(texto)) {
       console.log('[webhook] ignorado (texto não é 1, 2 ou 3)');

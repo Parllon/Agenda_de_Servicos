@@ -29,16 +29,17 @@ Separação **código vs. configuração**:
 - `/clientes/<slug>` — cada cliente é só config: `.env` (infra+tema), `dados.json`
   (ficha: negócio, profissionais, serviços, mensagens), `fotos/`, `banco_dados/`.
   Container, banco e porta próprios = isolamento total.
-- `/Evolution_Global` — UMA Evolution API (WhatsApp) para todos. Cada cliente tem sua
-  instância dentro dela. Containers se falam pela rede Docker externa `agenda-net`.
 - `/clientes/_template` — molde copiado para cada cliente novo.
 
 ## Stack
 Node + Express; **SQLite** (better-sqlite3, modo WAL); frontend HTML + Tailwind (CDN) +
 JS puro servido pelo Express; Google Calendar via 1 service account compartilhada
 (`calendar-bot@agenda-de-servicos-498211.iam.gserviceaccount.com`, arquivo
-`app/credentials.json`); WhatsApp via Evolution API; avisos internos via Telegram.
+`app/credentials.json`); avisos internos via Telegram.
 Tudo em Docker. Túnel Cloudflare `agendamento` (domínio `agendamentos.app.br`).
+WhatsApp via **WAHA** (self-hosted, engine WEBJS — whatsapp-web.js + Chromium),
+substituiu Evolution API + wa-sender em 2026-06-27. Todos os clientes em
+`WHATSAPP_MODE=central`, sessão `agendamento` no container `waha`.
 
 ## REGRAS CRÍTICAS (já custaram tempo — não repetir)
 1. **Todo comando Docker leva o prefixo** (o `/root` do Zima é read-only):
@@ -53,9 +54,9 @@ Tudo em Docker. Túnel Cloudflare `agendamento` (domínio `agendamentos.app.br`)
      restart não recarrega variáveis de ambiente).
 3. **`docker build` precisa do `.` no fim**: `docker build -t motor-agendamento:v1 .`
 4. **Porta externa única por cliente** (`PORTA_EXTERNA`). Bya=8090, Navalha=8091...
-5. **WhatsApp:** o código lê a chave de **`WHATSAPP_API_TOKEN`** (= chave da Evolution).
-   `WHATSAPP_INSTANCE` precisa bater com o nome da instância no manager. Webhook da
-   instância → `http://<slug>-app:3000/webhook-whatsapp` + evento `MESSAGES_UPSERT`.
+5. **WhatsApp:** `WHATSAPP_MODE=central` em todos os clientes, via **WAHA** (`/waha`,
+   sessão `agendamento`). Se a sessão cair, reconectar: `POST /api/sessions/agendamento/restart`
+   (+ QR se não recuperar sozinho — ver §8.7 da `DOCUMENTACAO-SLOTME.md`).
 6. **Google:** o `calendar_id` de cada profissional precisa ser uma agenda **real
    compartilhada** com a service account. Placeholder → horário aparece mas a
    confirmação falha.
@@ -95,15 +96,10 @@ disso aparece. Tokens (WhatsApp/Telegram) vivem só nos `.env`.
   `{nome}` `{servico}` `{profissional}` `{data}` `{hora}` `{link}`.
 
 ## Estado atual / pendências
-- No ar: **bya** (8090, tema_1, em produção), **navalha_de_ouro** (8091, tema_2).
-  Também criados: `carol.figueira`, `barbearia_joao`.
-- **Agendas placeholder** (confirmação ainda falha até virar agenda real): a 2ª
-  profissional da Bya (**Julia**) e os barbeiros da Navalha (**Rafael**, **Diego**).
-- **Telegram e mensagens personalizadas** foram implementados recentemente — conferir
-  se já foram pro ar em todos os clientes (rebuild + `up -d`).
-- **Manutenção recorrente:** `CONFIG_SESSION_PHONE_VERSION` (em `Evolution_Global/.env`)
-  expira ~**02/08/2026** — quando o QR parar, atualizar. E fazer backup periódico de
-  `clientes/*/banco_dados/`.
+- No ar: **bya** (8090), **navalha_de_ouro** (8091), **julia_macedo** (8094), **studio_beleza** (8095).
+- **WhatsApp via WAHA** desde 2026-06-27, `WHATSAPP_MODE=central`. Erro 463 (Meta)
+  bloqueia envio a contatos que nunca mandaram mensagem primeiro pro número central.
+- Fazer backup periódico de `clientes/*/banco_dados/`.
 
 ## Comportamento do agente (instruções para o Claude Code)
 - **Sempre que uma mudança exigir rebuild**, incluir ao final da resposta o bloco de

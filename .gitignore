@@ -61,3 +61,8 @@ Thumbs.db
 # Imagens de contexto (prints/screenshots de uso interno)
 # ==========================================
 Imagens_contexto/
+
+# ==========================================
+# Sessão do WAHA (perfil Chromium + tokens de login do WhatsApp — segredo)
+# ==========================================
+waha/sessions/

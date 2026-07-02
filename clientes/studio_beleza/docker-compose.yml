@@ -42,7 +42,7 @@ services:
     depends_on:
       - app
 
-# Rede externa compartilhada com a Evolution global (WhatsApp centralizado na 8080).
+# Rede externa compartilhada entre todos os containers do SlotMe.
 networks:
   agenda-net:
     external: true
