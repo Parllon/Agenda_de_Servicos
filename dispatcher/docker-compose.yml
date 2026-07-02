@@ -9,8 +9,7 @@
 # Subir (de dentro desta pasta):
 #   sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d
 #
-# NOTA: WhatsApp desativado desde 2026-06-27. Este dispatcher permanece no ar mas
-# não recebe eventos até um novo provedor ser configurado.
+# Provedor atual: WAHA (ver /waha). Webhook da sessão "agendamento" aponta pra cá.
 
 services:
   dispatcher:

@@ -1,0 +1,30 @@
+# docker-compose.yml — WAHA (WhatsApp HTTP API self-hosted, engine WEBJS).
+# 1 container único para todos os clientes em WHATSAPP_MODE=central (ver §8 da
+# DOCUMENTACAO-SLOTME.md). Sessão "agendamento", persistida em ./sessions (fora do
+# Git — ver .gitignore). NÃO versionar ./sessions: tem o perfil do Chromium com os
+# tokens de login do WhatsApp.
+#
+# Subir (de dentro desta pasta):
+#   sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d
+#
+# Reconectar sessão (QR): ver §8.7 da DOCUMENTACAO-SLOTME.md.
+
+services:
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: waha
+    restart: unless-stopped
+    ports:
+      - "21465:3000"   # só LAN — usado pra reconectar via QR (ver §8.7)
+    environment:
+      - WHATSAPP_API_KEY=slotme-waha-2026   # = WAHA_API_KEY lido pelos clientes (header X-Api-Key)
+      - WAHA_DEFAULT_ENGINE=WEBJS
+    volumes:
+      - ./sessions:/app/.sessions
+    networks:
+      - agenda-net
+
+# Rede compartilhada com os containers dos clientes e o webhook-dispatcher.
+networks:
+  agenda-net:
+    external: true
