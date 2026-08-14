@@ -147,6 +147,7 @@ const PORTAS_RESERVADAS = new Set([
   8097, // jellyfin (8097->8096)
   8099, // painel-slotme
   8100, // crm_parllon
+  8101, // slotme-site (site de marketing, /DATA/SlotMe)
   8181, // qbittorrent
   8921, // jellyfin (8921->8920)
   8989, // sonarr

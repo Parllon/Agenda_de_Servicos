@@ -30,7 +30,17 @@ const state = {
 // onde cada visitante desiste no funil de agendamento.
 const SID = (() => {
   let s = sessionStorage.getItem('slotme_sid');
-  if (!s) { s = crypto.randomUUID(); sessionStorage.setItem('slotme_sid', s); }
+  if (!s) {
+    // crypto.randomUUID só existe em contexto seguro (HTTPS/localhost); em HTTP
+    // cai aqui pra não derrubar o resto do app.js por causa só de métricas.
+    s = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0;
+          return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+        });
+    sessionStorage.setItem('slotme_sid', s);
+  }
   return s;
 })();
 function trackEvent(tipo) {
