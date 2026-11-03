@@ -30,11 +30,7 @@ if (!SENHA) {
 app.set('trust proxy', 1); // Cloudflare tunnel envia X-Forwarded-For
 app.use(helmet({
   // Painel roda só em HTTP na LAN (nunca por HTTPS/Cloudflare — ver §15.1).
-  // HSTS aqui só serve pra "envenenar" o Chrome: se o navegador já acessou
-  // QUALQUER porta de 192.168.1.100 por HTTPS uma vez, esse header fixa
-  // (pin) HSTS pro IP inteiro por 1 ano e passa a forçar HTTPS em todas as
-  // portas do host — inclusive essa, que não tem TLS — deixando a página em
-  // branco (app.js/styles.css voltam 503). Desligado de propósito.
+  // HSTS não tem função aqui (nunca é servido por TLS) — desligado por higiene.
   hsts: false,
   contentSecurityPolicy: {
     directives: {
@@ -43,6 +39,13 @@ app.use(helmet({
       styleSrc:   ["'self'", "'unsafe-inline'"],
       imgSrc:     ["'self'", 'data:'],
       connectSrc: ["'self'"],
+      // helmet liga upgrade-insecure-requests por padrão quando CSP é
+      // configurado. Isso faz o navegador reescrever TODO recurso http da
+      // página (styles.css, app.js) pra https — que não existe aqui (sem
+      // TLS) — e eles voltam com erro, deixando a tela em branco (só o
+      // <title>/<h1> aparecem, nada do app.js roda). Causa real do painel
+      // branco em 2026-11-03; não é HSTS nem extensão do navegador.
+      upgradeInsecureRequests: null,
     },
   },
 }));
