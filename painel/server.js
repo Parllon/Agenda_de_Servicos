@@ -67,7 +67,11 @@ app.post('/api/login', limiteLogin, (req, res) => {
   res.cookie(COOKIE, 'ok', {
     httpOnly: true,
     sameSite: 'strict',
-    secure: true,
+    // Painel roda só em HTTP puro na LAN (nunca HTTPS/Cloudflare — §15.1).
+    // secure:true faz o navegador DESCARTAR o cookie em conexão HTTP: o
+    // login respondia "ok" mas a sessão nunca era salva, e a tela voltava
+    // pro login. Causa real do "senha não funciona" em 2026-11-03.
+    secure: false,
     signed: true,
     maxAge: 8 * 60 * 60 * 1000, // 8h
   });
