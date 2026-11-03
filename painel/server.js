@@ -29,6 +29,13 @@ if (!SENHA) {
 
 app.set('trust proxy', 1); // Cloudflare tunnel envia X-Forwarded-For
 app.use(helmet({
+  // Painel roda só em HTTP na LAN (nunca por HTTPS/Cloudflare — ver §15.1).
+  // HSTS aqui só serve pra "envenenar" o Chrome: se o navegador já acessou
+  // QUALQUER porta de 192.168.1.100 por HTTPS uma vez, esse header fixa
+  // (pin) HSTS pro IP inteiro por 1 ano e passa a forçar HTTPS em todas as
+  // portas do host — inclusive essa, que não tem TLS — deixando a página em
+  // branco (app.js/styles.css voltam 503). Desligado de propósito.
+  hsts: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
