@@ -43,7 +43,7 @@ Sistema de agendamento online para salões de beleza. O cliente final acessa uma
 
 **Pendências críticas:**
 - **Julia** (2ª prof. da Bya), **Rafael** e **Diego** (Navalha) têm `calendar_id` placeholder → horários aparecem mas a confirmação falha. Precisa de agenda Google real compartilhada com a service account.
-- Erro 463 (NackCallerReachoutTimelocked): clientes que nunca enviaram mensagem para o número central 5521984156366 não recebem o WhatsApp de confirmação. Solução: pedir que o cliente envie uma mensagem primeiro para o número. Não é bug de código — é restrição de conta no servidor da Meta.
+- Erro 463 (NackCallerReachoutTimelocked): clientes que nunca enviaram mensagem para o número central 5521994985733 não recebem o WhatsApp de confirmação. Solução: pedir que o cliente envie uma mensagem primeiro para o número. Não é bug de código — é restrição de conta no servidor da Meta.
 
 ---
 
@@ -456,7 +456,7 @@ sudo env DOCKER_CONFIG=/DATA/.docker docker logs --tail 50 <slug>-app
 
 - **Um** container WAHA para todos os clientes (pasta `waha/`, porta externa 21465).
 - Engine: **WEBJS** (whatsapp-web.js + Chromium).
-- Número pareado: **5521984156366**.
+- Número pareado: **5521994985733**.
 - Sessão: `agendamento`.
 - API Key: `slotme-waha-2026` (header `X-Api-Key` em todas as chamadas).
 - Dashboard: `http://192.168.1.100:21465/dashboard` — apenas visual; não reflete o estado real da sessão. Use a API para verificar.
@@ -474,9 +474,9 @@ curl -s http://localhost:21465/api/sessions/agendamento \
 
 ### 8.2 Limitação: erro 463 (NackCallerReachoutTimelocked)
 
-O número 5521984156366 **não consegue iniciar conversa** com contatos que nunca mandaram mensagem para ele. A Meta bloqueia com erro 463 (reach-out time-lock). Isso afeta todos os motores não-oficiais (WAHA, Evolution, Baileys…) — não é solucionável em código.
+O número 5521994985733 **não consegue iniciar conversa** com contatos que nunca mandaram mensagem para ele. A Meta bloqueia com erro 463 (reach-out time-lock). Isso afeta todos os motores não-oficiais (WAHA, Evolution, Baileys…) — não é solucionável em código.
 
-**Solução para clientes que não recebem:** pedir que enviem qualquer mensagem para o número **5521984156366** antes do agendamento. Após a primeira mensagem do cliente, as mensagens automáticas passam normalmente.
+**Solução para clientes que não recebem:** pedir que enviem qualquer mensagem para o número **5521994985733** antes do agendamento. Após a primeira mensagem do cliente, as mensagens automáticas passam normalmente.
 
 ### 8.3 WhatsApp LID (@lid)
 
@@ -493,7 +493,7 @@ O WAHA envia o evento `message` a cada mensagem recebida. O **dispatcher** repas
 
 ### 8.5 Modo central + dispatcher (fan-out)
 
-Um **único número** (5521984156366) atende todos os salões — sem parear número por cliente.
+Um **único número** (5521994985733) atende todos os salões — sem parear número por cliente.
 
 **Envio:** `whatsapp.js` chama o WAHA com a sessão `WHATSAPP_INSTANCE_CENTRAL`. Como todos recebem do mesmo número, a mensagem é prefixada: `WHATSAPP_PREFIXO_NOME=true` + `WHATSAPP_PREFIXO_LABEL` adicionam `[Bya]` etc. O rodapé com `negocio.whatsapp_contato` exibe o link de contato direto do salão (ver §11.2).
 
@@ -671,7 +671,7 @@ O `TELEGRAM_BOT_TOKEN` no `.env` do cliente ativa o recurso. Deixar vazio = Tele
 | `requires exactly 1 argument` no `docker build` | Faltou o `.` no fim do comando | `docker build -t motor-agendamento:v1 .` |
 | `mkdir /root/.docker: read-only file system` | Faltou o `DOCKER_CONFIG` | Prefixar com `sudo env DOCKER_CONFIG=/DATA/.docker docker ...` |
 | `Permission denied` em qualquer comando | Faltou `sudo` | Adicionar `sudo` |
-| WhatsApp **não entrega** para um contato específico | Erro 463 (reach-out time-lock): contato nunca enviou mensagem primeiro | Pedir que o cliente envie qualquer mensagem para 5521984156366 antes de agendar (ver §8.2) |
+| WhatsApp **não entrega** para um contato específico | Erro 463 (reach-out time-lock): contato nunca enviou mensagem primeiro | Pedir que o cliente envie qualquer mensagem para 5521994985733 antes de agendar (ver §8.2) |
 | WAHA retorna **401** | `WAHA_API_KEY` ausente ou incorreta no `.env` do cliente | Confirmar que `WAHA_API_KEY=slotme-waha-2026` + `up -d --force-recreate` |
 | WAHA retorna **404** na sessão | Sessão `agendamento` não existe ou não iniciou | `POST /api/sessions/agendamento/restart` (ver §8.7) |
 | Webhook não recebe respostas `1/2/3` | WAHA não tem webhook configurado, ou dispatcher não está no ar | Verificar webhook via `GET /api/agendamento/webhook` e dispatcher com `docker logs webhook-dispatcher` |
