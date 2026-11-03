@@ -148,6 +148,8 @@ const PORTAS_RESERVADAS = new Set([
   8099, // painel-slotme
   8100, // crm_parllon
   8101, // slotme-site (site de marketing, /DATA/SlotMe)
+  8102, // Aura Lab (site estático, /DATA/AuraLab)
+  8103, // parllondev-site (portfólio, /DATA/parllondev)
   8181, // qbittorrent
   8921, // jellyfin (8921->8920)
   8989, // sonarr
