@@ -83,6 +83,26 @@
     <h2>Estilo visual</h2>
     <p class="section-label">Tema</p>
     <div id="tema-grid" class="tema-grid"></div>
+
+    <div id="tema-custom-fields" class="fields" hidden style="margin-bottom:20px">
+      <label class="field">
+        <span>Cor primária</span>
+        <input type="color" id="n-cor-primaria" value="#5C2330" />
+      </label>
+      <label class="field">
+        <span>Cor de destaque (opcional)</span>
+        <input type="color" id="n-cor-destaque" value="#C6A04A" />
+        <span class="field-hint">Já vem num dourado padrão — só mude se quiser outra cor de detalhe.</span>
+      </label>
+      <label class="field">
+        <span>Fundo</span>
+        <select id="n-modo-cor">
+          <option value="claro">Claro</option>
+          <option value="escuro">Escuro</option>
+        </select>
+      </label>
+    </div>
+
     <p class="section-label">Como chamar quem atende?</p>
     <div id="perfil-chips" class="chips"></div>
   </div>

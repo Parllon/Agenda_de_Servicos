@@ -96,9 +96,15 @@ $('btn-voltar').addEventListener('click', abrirLista);
 
 // ---------- preencher selects ----------
 function preencherSelects() {
-  $('e-tema').innerHTML = META.temas.map((t) => `<option>${t}</option>`).join('');
+  $('e-tema').innerHTML = META.temas.map((t) => `<option>${t}</option>`).join('')
+    + '<option value="custom">custom (cor personalizada)</option>';
   $('e-perfil').innerHTML = META.perfis.map((p) => `<option>${p}</option>`).join('');
 }
+
+function applyTemaCustomVisibility() {
+  $('e-tema-custom-linha').hidden = $('e-tema').value !== 'custom';
+}
+$('e-tema').addEventListener('change', applyTemaCustomVisibility);
 
 // ---------- abrir edição ----------
 async function abrirEdicao(slug) {
@@ -153,6 +159,11 @@ function preencherForm(dados, env) {
 
   $('e-tema').value = env.TEMA || META.temas[0];
   $('e-perfil').value = env.PERFIL_PROFISSIONAL || META.perfis[0];
+  const temaCustom = neg.tema_custom || {};
+  $('e-cor-primaria').value = temaCustom.cor_primaria || '#5C2330';
+  $('e-cor-destaque').value = temaCustom.cor_destaque || '#C6A04A';
+  $('e-modo-cor').value = temaCustom.modo || 'claro';
+  applyTemaCustomVisibility();
   $('e-exp-ini').value = env.EXPEDIENTE_INICIO || '';
   $('e-exp-fim').value = env.EXPEDIENTE_FIM || '';
   $('e-folgas').value = env.FOLGAS || '';
@@ -267,6 +278,11 @@ function montarDados() {
       whatsapp_contato: $('n-whatsapp-contato').value.trim(),
       whatsapp_aviso: $('n-whatsapp-aviso').value.trim(),
       permitir_dois_servicos: $('n-dois-servicos').checked,
+      tema_custom: {
+        cor_primaria: $('e-cor-primaria').value,
+        cor_destaque: $('e-cor-destaque').value,
+        modo: $('e-modo-cor').value,
+      },
     },
     mensagens: {},
     profissionais: [],

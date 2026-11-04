@@ -16,7 +16,10 @@ function criar({ slug, porta, tema, perfil, dados }) {
   // --- validações (espelham novo-cliente.sh); falham ANTES de criar qualquer pasta ---
   if (!C.slugValido(slug)) throw new Error('Slug inválido. Use letras, números, ponto, hífen ou _ (sem espaços).');
   if (!porta || !/^\d+$/.test(String(porta))) throw new Error('Porta inválida (use só números).');
-  if (!C.TEMAS.includes(tema)) throw new Error(`Tema inválido: ${tema}.`);
+  if (tema !== 'custom' && !C.TEMAS.includes(tema)) throw new Error(`Tema inválido: ${tema}.`);
+  if (tema === 'custom' && !C.HEX_COR.test(dados?.negocio?.tema_custom?.cor_primaria || '')) {
+    throw new Error('Tema customizado: informe uma cor primária válida (#RRGGBB).');
+  }
   if (!C.PERFIS.includes(perfil)) throw new Error(`Perfil inválido: ${perfil}.`);
   if (C.existe(slug) || fs.existsSync(C.dirCliente(slug))) {
     throw new Error(`Já existe um cliente '${slug}'. Escolha outro slug.`);

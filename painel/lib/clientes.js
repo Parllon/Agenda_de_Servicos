@@ -13,6 +13,7 @@ const DIR_CLIENTES = path.join(PROJETO_RAIZ, 'clientes');
 // Listas de validação — espelham novo-cliente.sh e a doc §10.
 const TEMAS = ['tema_1', 'tema_2', 'tema_3', 'tema_4', 'tema_5', 'tema_6', 'tema_7', 'tema_8'];
 const PERFIS = ['profissional', 'barbeiro', 'terapeuta', 'cabeleireiro', 'designer', 'tatuador', 'especialista'];
+const HEX_COR = /^#[0-9a-f]{6}$/i;
 
 // Chaves do .env que o painel deixa editar (o resto fica como está no arquivo).
 const ENV_EDITAVEIS = [
@@ -94,7 +95,20 @@ function validar({ dados, env }, slug) {
   });
 
   if (env) {
-    if (env.TEMA && !TEMAS.includes(env.TEMA)) throw new Error(`Tema inválido: ${env.TEMA}.`);
+    // 'custom' = cor escolhida pelo dono em vez de um preset (ver tema_custom
+    // abaixo); qualquer outro valor precisa estar na lista fixa de 8 presets.
+    if (env.TEMA === 'custom') {
+      const cor = dados?.negocio?.tema_custom?.cor_primaria;
+      if (!cor || !HEX_COR.test(cor)) {
+        throw new Error('Tema customizado: informe uma cor primária válida (#RRGGBB).');
+      }
+      const destaque = dados?.negocio?.tema_custom?.cor_destaque;
+      if (destaque && !HEX_COR.test(destaque)) {
+        throw new Error('Tema customizado: cor de destaque inválida (#RRGGBB).');
+      }
+    } else if (env.TEMA && !TEMAS.includes(env.TEMA)) {
+      throw new Error(`Tema inválido: ${env.TEMA}.`);
+    }
     if (env.PERFIL_PROFISSIONAL && !PERFIS.includes(env.PERFIL_PROFISSIONAL)) {
       throw new Error(`Perfil inválido: ${env.PERFIL_PROFISSIONAL}.`);
     }
@@ -167,7 +181,7 @@ function proximaPorta() {
 }
 
 module.exports = {
-  PROJETO_RAIZ, DIR_CLIENTES, TEMAS, PERFIS, ENV_EDITAVEIS,
+  PROJETO_RAIZ, DIR_CLIENTES, TEMAS, PERFIS, ENV_EDITAVEIS, HEX_COR,
   dirCliente, slugValido, existe, listar, ler, gravar, validar, portasEmUso, normalizarDados,
   proximaPorta,
 };

@@ -5,6 +5,7 @@ const S = {
   porta: null,
   slug: '',
   tema: 'tema_1',
+  temaCustom: { cor_primaria: '#5C2330', cor_destaque: '#C6A04A', modo: 'claro' },
   perfil: 'profissional',
   negocio: { nome: '', subtitulo: '', cidade: '', rede_social: '', whatsapp_aviso: '', email_dono: '' },
   criarAgendasAuto: true, // "marcada por padrão para cliente novo"
@@ -233,14 +234,33 @@ function buildTemaGrid() {
       `</div>` +
       `<div class="tema-nome">${t.nome}</div>` +
       `<div class="tema-desc">${t.desc}</div>`;
-    card.addEventListener('click', () => {
-      S.tema = t.id;
-      grid.querySelectorAll('.tema-card').forEach((c) => c.classList.remove('selected'));
-      card.classList.add('selected');
-    });
+    card.addEventListener('click', () => selecionarTema(t.id, card));
     grid.appendChild(card);
   });
+
+  const custom = document.createElement('div');
+  custom.className = `tema-card tema-custom-card${S.tema === 'custom' ? ' selected' : ''}`;
+  custom.innerHTML = `<div class="tema-nome">+ Cor personalizada</div>`;
+  custom.addEventListener('click', () => selecionarTema('custom', custom));
+  grid.appendChild(custom);
+
+  applyTemaCustomUI();
 }
+
+function selecionarTema(id, card) {
+  S.tema = id;
+  $('tema-grid').querySelectorAll('.tema-card').forEach((c) => c.classList.remove('selected'));
+  card.classList.add('selected');
+  applyTemaCustomUI();
+}
+
+function applyTemaCustomUI() {
+  $('tema-custom-fields').hidden = S.tema !== 'custom';
+}
+
+$('n-cor-primaria').addEventListener('input', (e) => { S.temaCustom.cor_primaria = e.target.value; });
+$('n-cor-destaque').addEventListener('input', (e) => { S.temaCustom.cor_destaque = e.target.value; });
+$('n-modo-cor').addEventListener('change', (e) => { S.temaCustom.modo = e.target.value; });
 
 function buildPerfilChips() {
   const container = $('perfil-chips');
@@ -455,6 +475,7 @@ function buildHorariosStep() {
 function buildRevisao() {
   const c = $('revisao-cards');
   const tema  = TEMAS_DATA.find((t) => t.id === S.tema);
+  const temaNome = tema ? tema.nome : `Cor personalizada (${S.temaCustom.cor_primaria})`;
   const perfil = PERFIS_DATA.find((p) => p.id === S.perfil);
 
   let html = `<div class="rev-card">
@@ -464,7 +485,7 @@ function buildRevisao() {
     <div class="rev-row"><span>Cidade</span><span>${esc(S.negocio.cidade)}</span></div>
     ${S.negocio.rede_social ? `<div class="rev-row"><span>Rede social</span><span>${esc(S.negocio.rede_social)}</span></div>` : ''}
     <div class="rev-row"><span>Slug</span><span>${esc(S.slug)}.agendamentos.app.br</span></div>
-    <div class="rev-row"><span>Tema</span><span>${tema?.nome}</span></div>
+    <div class="rev-row"><span>Tema</span><span>${temaNome}</span></div>
     <div class="rev-row"><span>Perfil</span><span>${perfil?.label}</span></div>
   </div>`;
 
@@ -525,6 +546,7 @@ async function criarCliente() {
       whatsapp_contato:  '',
       whatsapp_aviso:    S.negocio.whatsapp_aviso || '',
       email_dono:        S.negocio.email_dono || '',
+      tema_custom:       S.tema === 'custom' ? S.temaCustom : { cor_primaria: '', cor_destaque: '', modo: 'claro' },
     },
     profissionais: S.profissionais.map((p, i) => ({
       id:            i + 1,
@@ -704,6 +726,7 @@ $('btn-novo-cliente').addEventListener('click', () => {
   S.porta = null;
   S.slug  = '';
   S.tema  = 'tema_1';
+  S.temaCustom = { cor_primaria: '#5C2330', cor_destaque: '#C6A04A', modo: 'claro' };
   S.perfil = 'profissional';
   S.negocio = { nome: '', subtitulo: '', cidade: '', rede_social: '', whatsapp_aviso: '', email_dono: '' };
   S.criarAgendasAuto = true;
@@ -717,6 +740,11 @@ $('btn-novo-cliente').addEventListener('click', () => {
   $('slug-preview').textContent = '';
   $('n-auto-agenda').checked = true;
   applyAutoAgendaUI();
+  $('n-cor-primaria').value = S.temaCustom.cor_primaria;
+  $('n-cor-destaque').value = S.temaCustom.cor_destaque;
+  $('n-modo-cor').value = S.temaCustom.modo;
+  $('tema-grid').innerHTML = '';
+  buildTemaGrid();
   $('lista-profs').innerHTML = '';
   $('status-chips').innerHTML = '';
   $('aviso-reload').hidden = true;

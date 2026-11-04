@@ -279,4 +279,94 @@ function cssVars(tema) {
   return vars.join(';');
 }
 
-module.exports = { TEMAS, PERFIS, cssVars };
+// ── Cor customizada ──────────────────────────────────────────────────────
+// Deriva uma paleta completa (os mesmos 8 papéis de cor dos presets acima) a
+// partir de 1-2 cores escolhidas pelo dono no painel ("Visual" → "Cor
+// personalizada"), em vez de um preset de mão cheia. `wine` = a cor escolhida
+// direto; os outros papéis são variações calculadas em HSL, seguindo o mesmo
+// padrão que os presets já usam (ex.: no modo escuro, a variante de ênfase
+// "ilumina" em vez de escurecer — ver tema_2/tema_6 acima).
+
+function hexParaRgb(hex) {
+  const h = hex.replace('#', '');
+  return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+}
+
+function rgbParaString({ r, g, b }) { return `${r} ${g} ${b}`; }
+
+function rgbParaHsl({ r, g, b }) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  let h = 0, s = 0;
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    switch (max) {
+      case r: h = ((g - b) / d) % 6; break;
+      case g: h = (b - r) / d + 2; break;
+      default: h = (r - g) / d + 4;
+    }
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return { h, s: s * 100, l: l * 100 };
+}
+
+function hslParaRgbString({ h, s, l }) {
+  s = Math.max(0, Math.min(100, s)) / 100;
+  l = Math.max(0, Math.min(100, l)) / 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r, g, b;
+  if (h < 60) { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
+  const canal = (v) => Math.round((v + m) * 255);
+  return `${canal(r)} ${canal(g)} ${canal(b)}`;
+}
+
+const GOLD_PADRAO = '198 160 74'; // usado quando o dono não escolhe cor de destaque
+
+// Proporções calibradas comparando os 8 presets de mão (ver app/temas.js git
+// blame/comentários acima): deltas MULTIPLICATIVOS sobre a luminosidade, não
+// fixos — um valor fixo (ex. "-25 pontos") escurece demais cores que já são
+// escuras (ex. um vinho profundo) e de menos as muito claras.
+function clarear(l, k) { return l + (100 - l) * k; } // move em direção ao branco
+function escurecer(l, k) { return l * (1 - k); }      // move em direção ao preto
+
+// { corPrimaria: '#5C2330', corDestaque: '#C6A04A'|'', modo: 'claro'|'escuro' }
+function gerarTemaCustomizado({ corPrimaria, corDestaque, modo }) {
+  const escuro = modo === 'escuro';
+  const { h, s, l } = rgbParaHsl(hexParaRgb(corPrimaria));
+
+  const cores = {
+    wine: rgbParaString(hexParaRgb(corPrimaria)), // sem round-trip: preserva a cor exata escolhida
+    // ênfase/hover: escurece no modo claro, ilumina no modo escuro (como tema_2/tema_6).
+    wineDark: hslParaRgbString({ h, s, l: escuro ? clarear(l, 0.32) : escurecer(l, 0.3) }),
+    // bordas/realces: tom bem mais suave, na mesma direção do fundo do tema.
+    blush: hslParaRgbString({ h, s: s * 0.7, l: escuro ? escurecer(l, 0.54) : clarear(l, 0.65) }),
+    // trilho/fundo sutil: ainda mais suave que o blush.
+    blushSoft: hslParaRgbString({ h, s: s * 0.5, l: escuro ? escurecer(l, 0.74) : clarear(l, 0.85) }),
+    // texto secundário: luminosidade num ponto fixo de leitura média (não depende
+    // de quão clara/escura é a cor escolhida), bem dessaturado.
+    clay: hslParaRgbString({ h, s: s * 0.45, l: 57 }),
+    card: escuro ? hslParaRgbString({ h, s: 8, l: 12 }) : '255 255 255',
+    ivory: escuro ? hslParaRgbString({ h, s: 10, l: 6 }) : hslParaRgbString({ h, s: 20, l: 97 }),
+    gold: corDestaque ? rgbParaString(hexParaRgb(corDestaque)) : GOLD_PADRAO,
+  };
+
+  // Fonte/rótulos fixos num par neutro por ora (fonte customizada fica para depois).
+  return {
+    cores,
+    fontes: TEMAS.tema_8.fontes,
+    fonteUrl: TEMAS.tema_8.fonteUrl,
+    rotulos: PERFIS.profissional,
+  };
+}
+
+module.exports = { TEMAS, PERFIS, cssVars, gerarTemaCustomizado };

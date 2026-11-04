@@ -11,7 +11,8 @@
     "calendar_central": "",
     "email_dono": "",
     "og_imagem": "",
-    "permitir_dois_servicos": false
+    "permitir_dois_servicos": false,
+    "tema_custom": { "cor_primaria": "", "cor_destaque": "", "modo": "claro" }
   },
   "mensagens": {},
   "profissionais": [

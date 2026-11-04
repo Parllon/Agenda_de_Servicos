@@ -232,6 +232,8 @@ h2 { font-size: 22px; margin: 0 0 20px; font-weight: 700; }
 .tema-acc { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; }
 .tema-nome { font-size: 13px; font-weight: 600; line-height: 1.2; }
 .tema-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.tema-card.tema-custom-card { border-style: dashed; display: flex; align-items: center; justify-content: center; text-align: center; }
+.tema-card.tema-custom-card .tema-nome { font-size: 13px; }
 
 /* ── Chips ────────────────────────────── */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }

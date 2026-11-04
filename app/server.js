@@ -11,7 +11,7 @@ const { getCalendarClient } = require('./google');
 const { enviarWhatsapp, modoWhatsapp } = require('./whatsapp');
 const { montarMensagem } = require('./mensagens');
 const { notificar, montarAviso, htmlParaWhatsapp } = require('./telegram');
-const { TEMAS, PERFIS, cssVars } = require('./temas');
+const { TEMAS, PERFIS, cssVars, gerarTemaCustomizado } = require('./temas');
 const { gerarSlotsDoDia: _gerarSlots } = require('./utils');
 
 const app = express();
@@ -44,14 +44,9 @@ app.use(
 
 app.use(express.json({ limit: '10kb' })); // corpo pequeno; agendamento não precisa de mais
 
-// --- Tema + identidade do negócio ---
-// TEMA (visual) vem do .env. A identidade (nome/subtítulo/cidade) vem do dados.json
-// — a MESMA ficha que o seed.js usa. Assim cada cliente tem um arquivo só de config.
-const TEMA = TEMAS[process.env.TEMA] ? process.env.TEMA : 'tema_1';
-const tema = TEMAS[TEMA];
-// Perfil de profissional: independente do tema; fallback para os rótulos do tema.
-const PERFIL = PERFIS[process.env.PERFIL_PROFISSIONAL] || tema.rotulos;
-
+// --- Identidade do negócio ---
+// A identidade (nome/subtítulo/cidade) vem do dados.json — a MESMA ficha que
+// o seed.js usa. Assim cada cliente tem um arquivo só de config.
 let negocioJson = {};
 try {
   const cam = process.env.CAMINHO_DADOS_JSON;
@@ -61,6 +56,20 @@ try {
 } catch (e) {
   console.error('Aviso: não consegui ler a identidade do dados.json:', e.message);
 }
+
+// --- Tema ---
+// TEMA=custom lê a cor escolhida em negocio.tema_custom (dados.json) e gera a
+// paleta na hora; por isso a resolução do tema vem DEPOIS do negocioJson acima.
+// Qualquer outro valor (ou custom sem cor_primaria) cai nos 8 presets de sempre.
+let tema;
+if (process.env.TEMA === 'custom' && negocioJson.tema_custom?.cor_primaria) {
+  tema = gerarTemaCustomizado(negocioJson.tema_custom);
+} else {
+  const TEMA = TEMAS[process.env.TEMA] ? process.env.TEMA : 'tema_1';
+  tema = TEMAS[TEMA];
+}
+// Perfil de profissional: independente do tema; fallback para os rótulos do tema.
+const PERFIL = PERFIS[process.env.PERFIL_PROFISSIONAL] || tema.rotulos;
 
 // Precedência: dados.json -> .env (override opcional) -> padrão.
 const NEGOCIO = {
