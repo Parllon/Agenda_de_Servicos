@@ -1,7 +1,16 @@
 // scripts/testar-agendas.js — cria 1 agenda de teste e compartilha com um e-mail.
-// Uso (de dentro do container do painel, onde o googleapis já está instalado):
-//   node scripts/testar-agendas.js seuemail@gmail.com
-//   node scripts/testar-agendas.js --delete <calendarId>   # apaga a agenda de teste
+//
+// Uso (via docker exec, de fora do container):
+//   docker exec -e NODE_PATH=/app/node_modules painel-slotme \
+//     node /DATA/Agendamento/scripts/testar-agendas.js seuemail@gmail.com
+//   docker exec -e NODE_PATH=/app/node_modules painel-slotme \
+//     node /DATA/Agendamento/scripts/testar-agendas.js --delete <calendarId>
+//
+// O NODE_PATH é necessário porque este script roda a partir do volume
+// montado do projeto (/DATA/Agendamento), não de dentro da imagem (/app) —
+// e é só dentro da imagem que `npm install` deixou o googleapis instalado.
+// Sem isso, o require('googleapis') em painel/lib/agendas.js falha com
+// "Cannot find module 'googleapis'".
 const { getCalendarClient } = require('../painel/lib/agendas');
 
 async function main() {
