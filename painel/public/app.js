@@ -59,13 +59,22 @@ async function abrirLista() {
   for (const c of clientes) {
     const card = document.createElement('div');
     card.className = 'card cliente';
+    const statusBadge = c.ativo === null ? '' : c.ativo
+      ? '<span class="status status-ativo">● Ativo</span>'
+      : '<span class="status status-inativo">○ Inativo</span>';
+    const botaoPausarOuReativar = c.ativo === true
+      ? `<button class="secundario" data-pausar="${esc(c.slug)}">Pausar</button>`
+      : c.ativo === false
+      ? `<button class="secundario" data-reativar="${esc(c.slug)}">Reativar</button>`
+      : '';
     card.innerHTML = `
-      <h3>${esc(c.nome)}</h3>
+      <h3>${esc(c.nome)} ${statusBadge}</h3>
       <p class="meta">slug: <b>${esc(c.slug)}</b> · porta: ${esc(c.porta || '?')} · ${esc(c.tema || '?')}</p>
       ${c.erro ? `<p class="erro">⚠ ${esc(c.erro)}</p>` : ''}
       <div class="prof-acoes">
         <button data-editar="${esc(c.slug)}">Editar</button>
         <button class="secundario" data-aplicar="${esc(c.slug)}">Aplicar</button>
+        ${botaoPausarOuReativar}
         <button class="link remover" data-excluir="${esc(c.slug)}">Excluir</button>
       </div>`;
     grid.appendChild(card);
@@ -74,6 +83,10 @@ async function abrirLista() {
     b.addEventListener('click', () => abrirEdicao(b.dataset.editar)));
   grid.querySelectorAll('[data-aplicar]').forEach((b) =>
     b.addEventListener('click', () => aplicar(b.dataset.aplicar)));
+  grid.querySelectorAll('[data-pausar]').forEach((b) =>
+    b.addEventListener('click', () => pausar(b.dataset.pausar)));
+  grid.querySelectorAll('[data-reativar]').forEach((b) =>
+    b.addEventListener('click', () => reativar(b.dataset.reativar)));
   grid.querySelectorAll('[data-excluir]').forEach((b) =>
     b.addEventListener('click', () => excluir(b.dataset.excluir)));
 }
@@ -342,6 +355,22 @@ async function aplicar(slug) {
   }
 }
 $('btn-fecha-log').addEventListener('click', () => esconder('modal-log'));
+
+// ---------- pausar / reativar ----------
+async function pausar(slug) {
+  if (!confirm(`Pausar "${slug}"?\n\nO serviço fica fora do ar até reativar. Nada é apagado — cadastro, banco de dados e fotos continuam intactos.`)) return;
+  try {
+    await api('POST', `/api/clientes/${slug}/pausar`);
+    await abrirLista();
+  } catch (err) { alert('Erro ao pausar: ' + err.message); }
+}
+
+async function reativar(slug) {
+  try {
+    await api('POST', `/api/clientes/${slug}/reativar`);
+    await abrirLista();
+  } catch (err) { alert('Erro ao reativar: ' + err.message); }
+}
 
 // ---------- excluir ----------
 async function excluir(slug) {

@@ -29,6 +29,9 @@ section, .modal-box { max-width: 920px; margin: 22px auto; padding: 0 16px; }
 
 .cliente h3 { margin: 0 0 4px; }
 .meta { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
+.status { font-size: 12px; font-weight: 500; margin-left: 6px; }
+.status-ativo { color: var(--ok); }
+.status-inativo { color: var(--muted); }
 
 label { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); gap: 4px; flex: 1; }
 input, select, textarea {

@@ -16,6 +16,7 @@ const M = require('./lib/metricas');
 const { criar } = require('./lib/criar');
 const { aplicar } = require('./lib/aplicar');
 const { deletar } = require('./lib/deletar');
+const { pausar, reativar, estaAtivo } = require('./lib/pausar');
 const { criarAgendasDoCliente } = require('./lib/agendas');
 const { registrarDNS, atualizarConfig, reloadCloudflared } = require('./lib/cloudflare');
 
@@ -86,8 +87,14 @@ app.get('/api/meta', exigirLogin, (req, res) => {
   res.json({ temas: C.TEMAS, perfis: C.PERFIS, envEditaveis: C.ENV_EDITAVEIS });
 });
 
-app.get('/api/clientes', exigirLogin, (req, res) => {
-  res.json(C.listar());
+app.get('/api/clientes', exigirLogin, async (req, res) => {
+  const clientes = C.listar();
+  // ativo/inativo/null (nunca aplicado) lido direto do Docker — nunca fica
+  // desincronizado da realidade, não depende de nenhum flag salvo em arquivo.
+  const comStatus = await Promise.all(
+    clientes.map(async (c) => ({ ...c, ativo: await estaAtivo(c.slug) }))
+  );
+  res.json(comStatus);
 });
 
 app.get('/api/clientes/:slug', exigirLogin, (req, res) => {
@@ -115,6 +122,26 @@ app.delete('/api/clientes/:slug', exigirLogin, async (req, res) => {
   if (!C.existe(slug)) return res.status(404).json({ erro: `cliente '${slug}' não existe` });
   try {
     await deletar(slug);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// Pausa: para os containers, mantém pasta/banco/dados.json/fotos intactos.
+app.post('/api/clientes/:slug/pausar', exigirLogin, async (req, res) => {
+  const slug = req.params.slug;
+  if (!C.existe(slug)) return res.status(404).json({ erro: `cliente '${slug}' não existe` });
+  try {
+    await pausar(slug);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// Reativa: religa os containers já existentes (sem reseed).
+app.post('/api/clientes/:slug/reativar', exigirLogin, async (req, res) => {
+  const slug = req.params.slug;
+  if (!C.existe(slug)) return res.status(404).json({ erro: `cliente '${slug}' não existe` });
+  try {
+    await reativar(slug);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
