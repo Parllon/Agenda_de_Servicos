@@ -339,8 +339,9 @@ const GOLD_PADRAO = '198 160 74'; // usado quando o dono não escolhe cor de des
 function clarear(l, k) { return l + (100 - l) * k; } // move em direção ao branco
 function escurecer(l, k) { return l * (1 - k); }      // move em direção ao preto
 
-// { corPrimaria: '#5C2330', corDestaque: '#C6A04A'|'', modo: 'claro'|'escuro' }
-function gerarTemaCustomizado({ corPrimaria, corDestaque, modo }) {
+// { cor_primaria: '#5C2330', cor_destaque: '#C6A04A'|'', modo: 'claro'|'escuro' }
+// (mesmas chaves de negocio.tema_custom no dados.json — ver clientes/_template)
+function gerarTemaCustomizado({ cor_primaria: corPrimaria, cor_destaque: corDestaque, modo }) {
   const escuro = modo === 'escuro';
   const { h, s, l } = rgbParaHsl(hexParaRgb(corPrimaria));
 
