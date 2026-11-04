@@ -6,8 +6,9 @@ const S = {
   slug: '',
   tema: 'tema_1',
   perfil: 'profissional',
-  negocio: { nome: '', subtitulo: '', cidade: '', rede_social: '', whatsapp_aviso: '' },
-  profissionais: [],   // [{ nome, calendar_id, servicos: [{nome,duracao_min,valor}] }]
+  negocio: { nome: '', subtitulo: '', cidade: '', rede_social: '', whatsapp_aviso: '', email_dono: '' },
+  criarAgendasAuto: true, // "marcada por padrão para cliente novo"
+  profissionais: [],   // [{ nome, calendar_id, email, servicos: [{nome,duracao_min,valor}] }]
   whatsapp: {
     mode: 'central',
     instance_proprio: '',
@@ -78,6 +79,7 @@ async function init() {
   buildHorariosStep();
   setupWAListeners();
   setupProfListeners();
+  applyAutoAgendaUI();
 
   const sessao = await api('GET', '/api/sessao');
   if (sessao.logado) {
@@ -162,10 +164,16 @@ function validateNegocio() {
     return false;
   }
   if (!cidade) { alert('Informe a cidade.'); return false; }
+  const emailDono = $('n-email-dono').value.trim();
+  if (S.criarAgendasAuto && !emailDono) {
+    alert('Informe o e-mail do dono (Google) para criar as agendas automaticamente.');
+    return false;
+  }
   S.negocio.nome      = nome;
   S.negocio.subtitulo = $('n-subtitulo').value.trim();
   S.negocio.cidade    = cidade;
   S.negocio.rede_social = $('n-redesocial').value.trim();
+  S.negocio.email_dono = emailDono;
   S.slug              = slug;
   return true;
 }
@@ -174,7 +182,10 @@ function validateProfs() {
   if (S.profissionais.length === 0) { alert('Adicione pelo menos 1 profissional.'); return false; }
   for (const p of S.profissionais) {
     if (!p.nome)        { alert('Informe o nome de todos os profissionais.'); return false; }
-    if (!p.calendar_id) { alert(`Informe o e-mail do Google Calendar de "${p.nome || 'um profissional'}".`); return false; }
+    if (!S.criarAgendasAuto && !p.calendar_id) {
+      alert(`Informe o e-mail do Google Calendar de "${p.nome || 'um profissional'}".`);
+      return false;
+    }
     if (!p.servicos.length) { alert(`Adicione ao menos 1 serviço para "${p.nome}".`); return false; }
     for (const s of p.servicos) {
       if (!s.nome) { alert(`Informe o nome de todos os serviços de "${p.nome}".`); return false; }
@@ -197,6 +208,16 @@ $('n-slug').addEventListener('input', () => {
 function updateSlugPreview() {
   const s = $('n-slug').value.trim();
   $('slug-preview').textContent = s ? `→ ${s}.agendamentos.app.br` : '';
+}
+
+$('n-auto-agenda').addEventListener('change', (e) => {
+  S.criarAgendasAuto = e.target.checked;
+  applyAutoAgendaUI();
+});
+function applyAutoAgendaUI() {
+  $('n-email-dono-field').hidden = !S.criarAgendasAuto;
+  $('profs-hint-auto').hidden = !S.criarAgendasAuto;
+  renderProfs();
 }
 
 // ── Step 2: Visual ────────────────────────────────────────────────
@@ -254,6 +275,7 @@ function setupProfListeners() {
     } else {
       if (e.target.matches('.p-nome'))     { S.profissionais[pi].nome = e.target.value; }
       if (e.target.matches('.p-calendar')) { S.profissionais[pi].calendar_id = e.target.value; }
+      if (e.target.matches('.p-email'))    { S.profissionais[pi].email = e.target.value; }
     }
   });
 
@@ -294,7 +316,7 @@ function setupProfListeners() {
   });
 
   $('btn-add-prof').addEventListener('click', () => {
-    S.profissionais.push({ nome: '', calendar_id: '', servicos: [] });
+    S.profissionais.push({ nome: '', calendar_id: '', email: '', servicos: [] });
     renderProfs();
     // Foca no nome do novo profissional
     const cards = lista.querySelectorAll('.prof-card');
@@ -318,8 +340,12 @@ function renderProfs() {
       `<div class="fields">` +
       `  <label class="field"><span>Nome completo</span>` +
       `    <input type="text" class="p-nome" value="${esc(p.nome)}" placeholder="ex: Maria Silva" /></label>` +
-      `  <label class="field"><span>E-mail do Google Calendar</span>` +
-      `    <input type="email" class="p-calendar" value="${esc(p.calendar_id)}" placeholder="maria@gmail.com" /></label>` +
+      (S.criarAgendasAuto
+        ? `  <label class="field"><span>E-mail do profissional (opcional)</span>` +
+          `    <input type="email" class="p-email" value="${esc(p.email || '')}" placeholder="também compartilha a agenda com ele(a)" /></label>`
+        : `  <label class="field"><span>E-mail do Google Calendar</span>` +
+          `    <input type="email" class="p-calendar" value="${esc(p.calendar_id)}" placeholder="maria@gmail.com" /></label>`
+      ) +
       `</div>` +
       `<div class="servicos-list"></div>` +
       `<button type="button" class="btn-add-serv">+ Adicionar serviço</button>`;
@@ -498,11 +524,13 @@ async function criarCliente() {
       rede_social:       S.negocio.rede_social || '',
       whatsapp_contato:  '',
       whatsapp_aviso:    S.negocio.whatsapp_aviso || '',
+      email_dono:        S.negocio.email_dono || '',
     },
     profissionais: S.profissionais.map((p, i) => ({
       id:            i + 1,
       nome:          p.nome,
       calendar_id:   p.calendar_id,
+      email:         p.email || '',
       subject_email: p.calendar_id,
       foto_url:      '',
       telegram_chat_id: '',
@@ -543,6 +571,25 @@ async function criarCliente() {
     return;
   }
 
+  // ── Fase Google: criar agendas automaticamente (se ligado) ──────
+  // Tem que rodar ANTES do Docker: o seed.js lê o calendar_id do dados.json
+  // ao subir o container, então as agendas precisam existir antes do "Aplicar".
+  let resultadoAgendas = null;
+  if (S.criarAgendasAuto) {
+    setFase('fase-google', 'ativa');
+    try {
+      resultadoAgendas = await api('POST', `/api/clientes/${slug}/agendas`);
+      setFase('fase-google', resultadoAgendas.erros.length ? 'falhou' : 'done');
+    } catch (e) {
+      resultadoAgendas = { criadas: [], jaExistiam: [], naoTentadas: [], erros: [{ erro: e.message }] };
+      setFase('fase-google', 'falhou');
+      // Continua mesmo assim — o cliente já existe, dá pra tentar de novo depois
+      // chamando esse endpoint sozinho (idempotente), sem recriar tudo.
+    }
+  } else {
+    setFase('fase-google', 'done');
+  }
+
   // ── Fase 2: Docker ───────────────────────────────────
   setFase('fase-docker', 'ativa');
   let dockerOk = false;
@@ -572,18 +619,21 @@ async function criarCliente() {
   await sleep(15000);
   setFase('fase-final', 'done');
 
-  showSucesso(slug, url, cf, dockerOk);
+  showSucesso(slug, url, cf, dockerOk, resultadoAgendas);
 }
 
 const BOT_EMAIL = 'calendar-bot@agenda-de-servicos-498211.iam.gserviceaccount.com';
 
-function showSucesso(slug, url, cf, dockerOk) {
+function showSucesso(slug, url, cf, dockerOk, resultadoAgendas) {
   $('link-cliente').href    = url;
   $('link-cliente').textContent = url;
+
+  const googleOk = !S.criarAgendasAuto || (resultadoAgendas && resultadoAgendas.erros.length === 0);
 
   const chips = $('status-chips');
   chips.innerHTML = '';
   addChip(chips, 'Config',     true);
+  if (S.criarAgendasAuto) addChip(chips, 'Google', googleOk);
   addChip(chips, 'Docker',     dockerOk);
   addChip(chips, 'DNS',        cf.dns);
   addChip(chips, 'CF Reload',  cf.reload);
@@ -599,13 +649,35 @@ function showSucesso(slug, url, cf, dockerOk) {
     $('aviso-reload').hidden = true;
   }
 
-  // Lista de profissionais para compartilhamento de agenda
-  $('setup-profs').innerHTML = S.profissionais.map((p) =>
-    `<div class="setup-prof-row">
-      <span class="setup-prof-nome">${esc(p.nome)}</span>
-      <span class="setup-prof-cal">${esc(p.calendar_id)}</span>
-    </div>`
-  ).join('');
+  // Google: mostra o bloco certo conforme o modo e o resultado da Fase Google.
+  if (googleOk && S.criarAgendasAuto) {
+    // Tudo criado/compartilhado automaticamente — só falta o dono aceitar o convite.
+    $('calendar-setup-auto').hidden = false;
+    $('calendar-setup-manual').hidden = true;
+    $('setup-email-dono').textContent = S.negocio.email_dono;
+    $('setup-profs-auto').innerHTML = S.profissionais.map((p) =>
+      `<div class="setup-prof-row">
+        <span class="setup-prof-nome">${esc(p.nome)}</span>
+        <span class="setup-prof-cal">${esc(p.calendar_id)}</span>
+      </div>`
+    ).join('');
+  } else {
+    // Modo manual, OU modo automático com falha parcial — instruções manuais.
+    // Em falha parcial, lista só quem ainda precisa (erros + não tentados).
+    $('calendar-setup-auto').hidden = true;
+    $('calendar-setup-manual').hidden = false;
+    const pendentes = S.criarAgendasAuto && resultadoAgendas
+      ? new Set([...resultadoAgendas.erros, ...resultadoAgendas.naoTentadas.map((nome) => ({ profissional: nome }))].map((x) => x.profissional))
+      : null; // null = modo manual puro, mostra todos
+    $('setup-profs').innerHTML = S.profissionais
+      .filter((p) => !pendentes || pendentes.has(p.nome))
+      .map((p) =>
+        `<div class="setup-prof-row">
+          <span class="setup-prof-nome">${esc(p.nome)}</span>
+          <span class="setup-prof-cal">${esc(p.calendar_id || '(compartilhar manualmente)')}</span>
+        </div>`
+      ).join('');
+  }
 
   showStep('step-sucesso');
   $('footer-nav').hidden = true;
@@ -633,15 +705,18 @@ $('btn-novo-cliente').addEventListener('click', () => {
   S.slug  = '';
   S.tema  = 'tema_1';
   S.perfil = 'profissional';
-  S.negocio = { nome: '', subtitulo: '', cidade: '', rede_social: '', whatsapp_aviso: '' };
+  S.negocio = { nome: '', subtitulo: '', cidade: '', rede_social: '', whatsapp_aviso: '', email_dono: '' };
+  S.criarAgendasAuto = true;
   S.profissionais = [];
   S.whatsapp = { mode: 'central', instance_proprio: '', instance_central: 'agendamento', prefixo_nome: true, prefixo_label: '' };
   S.horarios = { inicio: 9, fim: 19, folgas: [0], slot: 30, janela: 30 };
 
   // Limpa campos
-  ['n-nome', 'n-slug', 'n-subtitulo', 'n-cidade', 'n-redesocial'].forEach((id) => { $(id).value = ''; });
+  ['n-nome', 'n-slug', 'n-subtitulo', 'n-cidade', 'n-redesocial', 'n-email-dono'].forEach((id) => { $(id).value = ''; });
   delete $('n-slug').dataset.edited;
   $('slug-preview').textContent = '';
+  $('n-auto-agenda').checked = true;
+  applyAutoAgendaUI();
   $('lista-profs').innerHTML = '';
   $('status-chips').innerHTML = '';
   $('aviso-reload').hidden = true;

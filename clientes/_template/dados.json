@@ -9,6 +9,7 @@
     "telegram_chat_id": "",
     "whatsapp_aviso": "",
     "calendar_central": "",
+    "email_dono": "",
     "og_imagem": "",
     "permitir_dois_servicos": false
   },
@@ -18,6 +19,7 @@
       "id": 1,
       "nome": "Carol Ribeiro",
       "calendar_id": "agenda-carol@gmail.com",
+      "email": "",
       "subject_email": null,
       "foto_url": "/fotos/carol.jpg",
       "telegram_chat_id": "",
@@ -48,6 +50,7 @@
       "id": 2,
       "nome": "Aline Souza",
       "calendar_id": "agenda-aline@gmail.com",
+      "email": "",
       "subject_email": null,
       "foto_url": "",
       "telegram_chat_id": "",

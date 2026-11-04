@@ -63,6 +63,19 @@
         <span class="field-hint" id="slug-preview"></span>
       </label>
     </div>
+
+    <div class="toggle-row" style="margin-top:20px">
+      <span>Criar agendas Google automaticamente</span>
+      <label class="toggle">
+        <input type="checkbox" id="n-auto-agenda" checked />
+        <span class="slider"></span>
+      </label>
+    </div>
+    <label class="field" id="n-email-dono-field">
+      <span>E-mail do dono (Google)</span>
+      <input type="email" id="n-email-dono" placeholder="dona@gmail.com" autocomplete="off" />
+      <span class="field-hint">A SA cria a agenda de cada profissional e manda um convite pra esse e-mail.</span>
+    </label>
   </div>
 
   <!-- ── Step 2: Visual ──────────────────────────────────────────── -->
@@ -77,6 +90,7 @@
   <!-- ── Step 3: Profissionais ───────────────────────────────────── -->
   <div id="step-profs" class="step" hidden>
     <h2>Profissionais</h2>
+    <p class="section-label" id="profs-hint-auto" hidden>A agenda de cada um é criada automaticamente — não precisa preencher.</p>
     <div id="lista-profs"></div>
     <button type="button" class="btn-add" id="btn-add-prof">+ Adicionar profissional</button>
   </div>
@@ -185,6 +199,7 @@
       <h2 id="apply-titulo">Criando cliente...</h2>
       <div>
         <div class="fase" id="fase-config">Criando configuração</div>
+        <div class="fase" id="fase-google">Criando agendas Google</div>
         <div class="fase" id="fase-docker">Iniciando containers</div>
         <div class="fase" id="fase-dns">Registrando DNS</div>
         <div class="fase" id="fase-final">Finalizando</div>
@@ -201,7 +216,13 @@
       <div id="status-chips" class="status-chips"></div>
       <div id="aviso-reload" class="aviso" hidden></div>
 
-      <div class="calendar-setup">
+      <div class="calendar-setup" id="calendar-setup-auto" hidden>
+        <div class="setup-header">Agendas criadas automaticamente</div>
+        <p class="setup-intro">Foi enviado um convite do Google Calendar para <strong id="setup-email-dono"></strong>. Peça pra aceitar cada agenda — depois disso os agendamentos já gravam direto.</p>
+        <div class="setup-profs" id="setup-profs-auto"></div>
+      </div>
+
+      <div class="calendar-setup" id="calendar-setup-manual" hidden>
         <div class="setup-header">Compartilhar o Google Calendar</div>
         <p class="setup-intro">Cada profissional faz isso <strong>uma única vez</strong> para o bot conseguir criar eventos:</p>
         <div class="bot-email-row">

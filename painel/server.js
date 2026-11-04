@@ -16,6 +16,7 @@ const M = require('./lib/metricas');
 const { criar } = require('./lib/criar');
 const { aplicar } = require('./lib/aplicar');
 const { deletar } = require('./lib/deletar');
+const { criarAgendasDoCliente } = require('./lib/agendas');
 const { registrarDNS, atualizarConfig, reloadCloudflared } = require('./lib/cloudflare');
 
 const app = express();
@@ -116,6 +117,22 @@ app.delete('/api/clientes/:slug', exigirLogin, async (req, res) => {
     await deletar(slug);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// Cria (idempotente) as agendas Google dos profissionais sem calendar_id, via
+// service account, e compartilha com negocio.email_dono. Síncrona (responde só
+// depois de terminar) — o wizard mostra isso como uma fase própria.
+app.post('/api/clientes/:slug/agendas', exigirLogin, async (req, res) => {
+  const slug = req.params.slug;
+  if (!C.existe(slug)) return res.status(404).json({ erro: `cliente '${slug}' não existe` });
+  try {
+    const { dados } = C.ler(slug);
+    const resultado = await criarAgendasDoCliente(dados); // muta dados em memória
+    C.gravar(slug, { dados }); // persiste calendar_id preenchido
+    res.json({ ok: resultado.erros.length === 0, ...resultado });
+  } catch (e) {
+    res.status(400).json({ erro: e.message });
+  }
 });
 
 app.post('/api/clientes/:slug/aplicar', exigirLogin, (req, res) => {

@@ -16,11 +16,16 @@ vez, e sinalizar trade-offs. Validar boas ideias; discordar com respeito quando
 necessário. Não assumir conhecimento avançado de Docker/Linux.
 
 ## Ambiente (importante)
-- **Edição:** Windows (VS Code), via pasta de rede `\\192.168.1.100\Agendamento`.
+- **Edição:** Windows (VS Code), numa cópia local do repo em
+  `C:\Projetos\Agenda_de_Servicos` (clone de `github.com/Parllon/Agenda_de_Servicos`).
+  Fluxo: editar → commit → push de lá. **Não editar mais pela pasta de rede**
+  `\\192.168.1.100\Agendamento` (deixou de ser o jeito certo).
 - **Execução:** servidor **ZimaOS (Linux)** em `192.168.1.100`, pasta `~/Agendamento`.
-  Os comandos Docker/git de verdade rodam **no terminal SSH do Zima**.
-- Se este agente roda no Windows: consegue ler/editar arquivos, mas **não** alcança o
-  Docker do Zima — os comandos de deploy o Parllon roda no SSH do Zima.
+  Antes de aplicar qualquer mudança, `git pull` nessa pasta no SSH do Zima. Os
+  comandos Docker/git de verdade rodam **no terminal SSH do Zima**.
+- Se este agente roda no Windows: consegue ler/editar arquivos na cópia local e
+  fazer commit/push, mas **não** alcança o Docker do Zima — os comandos de
+  deploy (`git pull` + rebuild/restart) o Parllon roda no SSH do Zima.
 
 ## Arquitetura
 Separação **código vs. configuração**:
@@ -59,7 +64,16 @@ substituiu Evolution API + wa-sender em 2026-06-27. Todos os clientes em
    (+ QR se não recuperar sozinho — ver §8.7 da `DOCUMENTACAO-SLOTME.md`).
 6. **Google:** o `calendar_id` de cada profissional precisa ser uma agenda **real
    compartilhada** com a service account. Placeholder → horário aparece mas a
-   confirmação falha.
+   confirmação falha. Dois modelos de como a agenda chega nesse estado:
+   - **Antigo (clientes atuais: bya, navalha_de_ouro, julia_macedo, studio_beleza):**
+     o dono compartilha a própria agenda com `calendar-bot@...` manualmente
+     (§9.2/§9.3 da `DOCUMENTACAO-SLOTME.md`), e cola o ID em `calendar_id`.
+   - **Novo (clientes criados pelo wizard `cadastro.*` com o checkbox "Criar
+     agendas Google automaticamente" ligado — padrão):** é o inverso — a
+     própria service account cria 1 agenda por profissional
+     (`painel/lib/agendas.js`) e manda convite pro `negocio.email_dono`; o
+     dono só precisa aceitar. O motor (`/app`) não diferencia os dois modelos
+     — só lê `calendar_id`, não importa quem criou a agenda.
 7. **Scripts `.sh`**: manter fim de linha **LF** (há `.gitattributes`). CRLF do Windows
    quebra no Linux.
 

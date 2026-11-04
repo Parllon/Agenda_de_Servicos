@@ -21,6 +21,7 @@ uma cópia para referência.
 | 1.4 | **Subdomínio desejado** (ex: `carol` → `carol.agendamentos.app.br`) | |
 | 1.5 | **Tema visual** — escolha um dos abaixo: | |
 | 1.6 | **Perfil do profissional** — como a interface chama quem atende: | |
+| 1.7 | **E-mail do dono (Google)** — recebe o convite das agendas criadas automaticamente (ver Bloco 3) | |
 
 **Opções de perfil:**
 
@@ -88,6 +89,18 @@ uma cópia para referência.
 
 ## BLOCO 3 — Google Calendar 🔴
 
+Dois jeitos de chegar numa agenda compartilhada com a service account — escolha
+um:
+
+**Automático (padrão, via wizard `cadastro.*`):** marque "Criar agendas Google
+automaticamente" e preencha o e-mail do dono (1.7). O próprio sistema cria 1
+agenda por profissional e manda um convite do Google Calendar pro e-mail do
+dono — ele só precisa **aceitar o convite**. Não precisa preencher nada deste
+bloco; os IDs ficam gravados sozinhos.
+
+**Manual (fallback, se algum profissional falhar no automático, ou se preferir
+que cada um use a própria agenda já existente):**
+
 *Esta etapa é feita pelo **próprio profissional** no Google Calendar dele.*
 
 | # | Instrução / Pergunta | Confirmado? |
@@ -96,7 +109,7 @@ uma cópia para referência.
 | 3.2 | **ID da agenda** do Profissional 1 *(Configurações do Calendar → "Integrar agenda" → "ID da agenda")* | |
 | 3.3 | **ID da agenda** do Profissional 2 *(se houver)* | |
 
-> ⚠️ Sem o compartilhamento correto, os horários aparecem todos livres mas o agendamento **não grava** no Calendar. É a causa mais comum de "confirmou mas não apareceu na agenda".
+> ⚠️ Sem o compartilhamento correto (automático ou manual), os horários aparecem todos livres mas o agendamento **não grava** no Calendar. É a causa mais comum de "confirmou mas não apareceu na agenda".
 
 ---
 
