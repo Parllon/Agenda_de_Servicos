@@ -124,3 +124,20 @@ describe('bloco site', () => {
     expect(porOrigem['(direto)'].erros_envio).toBe(1);
   });
 });
+
+describe('série diária e último agendamento', () => {
+  test('porDia agrupa por dia de São Paulo (22h30 de SP continua no dia 10)', () => {
+    const r = M.getMetricas(['bya'], '2026-11-09', '2026-11-10');
+    expect(r.bya.porDia).toEqual({ '2026-11-09': 1, '2026-11-10': 1 });
+  });
+
+  test('porDia respeita o período', () => {
+    expect(M.getMetricas(['bya'], '2026-11-10', '2026-11-10').bya.porDia).toEqual({ '2026-11-10': 1 });
+  });
+
+  test('ultimoAgendamento é o mais recente de todos, em ISO UTC, mesmo fora do período', () => {
+    const r = M.getMetricas(['bya'], '2026-10-01', '2026-10-02');
+    expect(r.bya.porDia).toEqual({});
+    expect(r.bya.ultimoAgendamento).toBe('2026-11-11T01:30:00Z');
+  });
+});

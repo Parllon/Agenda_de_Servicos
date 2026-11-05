@@ -44,7 +44,8 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc:  ["'self'", "'unsafe-inline'"],
-      styleSrc:   ["'self'", "'unsafe-inline'"],
+      styleSrc:   ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc:    ["'self'", 'https://fonts.gstatic.com'], // Inter/Sora da tela de métricas
       imgSrc:     ["'self'", 'data:'],
       connectSrc: ["'self'"],
       // helmet liga upgrade-insecure-requests por padrão quando CSP é

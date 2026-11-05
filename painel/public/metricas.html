@@ -4,437 +4,914 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Métricas — SlotMe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+    :root {
+      --navy: #1c3552; --navy-escuro: #16283f; --coral: #f2717f;
+      --fundo: #f5f7fb; --cartao: #ffffff; --borda: rgba(28,53,82,.10); --linha: rgba(28,53,82,.08);
+      --texto: #1c3552; --suave: #4f5d75; --apagado: #66738c; --trilho: #edf1f8; --fantasma: #c7d2e3;
+      --verde: #17784a; --verde-fundo: #e3f4ea;
+      --amarelo: #7a4a00; --amarelo-fundo: #fff1cc;
+      --laranja: #b4530a; --laranja-fundo: #fff6e8;
+      --vermelho: #a83349; --vermelho-ponto: #c94a5c; --vermelho-fundo: #fff1f3;
+      --azul: #1d5fa8; --azul-fundo: #e6effa;
+      --titulo: Sora, Inter, system-ui, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--fundo); color: var(--texto); font-family: Inter, system-ui, -apple-system, sans-serif; min-height: 100vh; }
+    a { color: var(--navy); }
+    a:hover { color: var(--vermelho-ponto); }
+    h2 { margin: 0; font-family: var(--titulo); font-size: 17px; }
+    button { font: inherit; }
+    .so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-    /* ── Header ── */
-    header {
-      background: #1a1a2e; color: #fff;
-      padding: 14px 24px; display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,.25);
-    }
-    header h1 { font-size: 1rem; font-weight: 700; letter-spacing: .02em; }
-    .header-links { display: flex; gap: 16px; align-items: center; }
-    .header-links a { color: rgba(255,255,255,.6); font-size: .8rem; text-decoration: none; }
-    .header-links a:hover { color: #fff; }
+    /* ── Cabeçalho ── */
+    header { background: var(--navy-escuro); color: #fff; position: sticky; top: 0; z-index: 10; }
+    .cab { max-width: 1240px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+    .marca { display: flex; align-items: center; gap: 10px; }
+    .marca strong { font-family: var(--titulo); font-size: 17px; }
+    .marca span { font-size: 14px; color: #9fb8dc; }
+    nav { display: flex; flex-wrap: wrap; gap: 4px; }
+    nav a { color: #c3cee0; text-decoration: none; font-size: 14px; font-weight: 500; padding: 8px 14px; border-radius: 999px; }
+    nav a:hover, nav a.atual { color: #fff; background: rgba(255,255,255,.12); }
+    nav a.atual { font-weight: 600; }
+    .voltar { color: #c3cee0; font-size: 14px; text-decoration: none; }
+    .voltar:hover { color: #fff; }
 
-    /* ── Toolbar ── */
-    .toolbar {
-      background: #fff; border-bottom: 1px solid #e2e5ea;
-      padding: 10px 24px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-    }
-    .toolbar-label { font-size: .8rem; color: #666; font-weight: 500; margin-right: 4px; }
-    .btn-p {
-      border: 1px solid #d0d5dd; border-radius: 20px; padding: 5px 14px;
-      font-size: .8rem; cursor: pointer; background: #fff; color: #444;
-      transition: all .15s;
-    }
-    .btn-p:hover { border-color: #1a1a2e; color: #1a1a2e; }
-    .btn-p.ativo { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
-    .sep { width: 1px; height: 20px; background: #e2e5ea; margin: 0 4px; }
-    .toolbar input[type=date] {
-      border: 1px solid #d0d5dd; border-radius: 8px; padding: 5px 10px;
-      font-size: .8rem; background: #fff; color: #444;
-    }
+    /* ── Barra do período ── */
+    .barra { background: var(--cartao); border-bottom: 1px solid var(--borda); }
+    .barra-in { max-width: 1240px; margin: 0 auto; padding: 12px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .barra-rot { font-size: 13px; font-weight: 600; color: var(--suave); margin-right: 4px; }
+    .btn-p { min-height: 36px; padding: 6px 14px; border-radius: 999px; border: 1.5px solid rgba(28,53,82,.22); background: #fff; color: var(--navy); font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-p:hover { border-color: var(--navy); }
+    .btn-p[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .sep { width: 1px; height: 22px; background: rgba(28,53,82,.15); margin: 0 6px; }
+    .comparar { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .comparar input { width: 18px; height: 18px; accent-color: var(--navy); margin: 0; }
+    .datas { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--suave); }
+    .datas input { border: 1.5px solid rgba(28,53,82,.22); border-radius: 10px; padding: 5px 8px; font: inherit; font-size: 13px; color: var(--navy); background: #fff; }
+    #status { margin-left: auto; font-size: 12px; color: var(--apagado); }
 
     /* ── Layout ── */
-    main { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
-    #status { font-size: .82rem; color: #888; padding: 6px 0 16px; }
+    main { max-width: 1240px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+    .cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .linha-cartoes { display: flex; flex-wrap: wrap; gap: 24px; align-items: stretch; }
+    .cab-cartao { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .sub { font-size: 13px; color: var(--suave); }
+    .nota { margin: 0; font-size: 12px; color: var(--apagado); line-height: 1.5; }
+    .vazio { margin: 0; font-size: 14px; color: var(--apagado); padding: 8px 0; }
+    [id] { scroll-margin-top: 90px; }
 
-    .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
-    @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+    /* ── KPIs ── */
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+    .kpi { background: var(--cartao); border: 1px solid var(--borda); border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
+    .kpi-rot { font-size: 13px; font-weight: 600; color: var(--suave); }
+    .kpi-val { font-family: var(--titulo); font-size: 32px; font-weight: 700; line-height: 1.1; }
+    .kpi-delta { font-size: 13px; font-weight: 600; }
+    .kpi-det { font-size: 12px; color: var(--apagado); }
 
-    /* ── Card ── */
-    .card {
-      background: #fff; border-radius: 14px;
-      box-shadow: 0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.04);
-      overflow: hidden;
-    }
-    .card-head {
-      padding: 14px 18px; border-bottom: 1px solid #f0f2f5;
-      display: flex; align-items: baseline; gap: 8px;
-    }
-    .card-head h2 { font-size: .95rem; font-weight: 700; color: #1a1a2e; }
-    .card-head .slug { font-size: .75rem; color: #aaa; font-weight: 400; }
-    .card-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 20px; }
+    /* ── Alertas ── */
+    .contador { font-size: 12px; font-weight: 700; color: #fff; background: var(--vermelho-ponto); padding: 3px 9px; border-radius: 999px; }
+    .contador.zero { background: var(--verde); }
+    .alerta { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 12px; }
+    .alerta.grave { background: var(--vermelho-fundo); }
+    .alerta.medio { background: var(--laranja-fundo); }
+    .alerta.ok { background: var(--verde-fundo); }
+    .ponto { flex-shrink: 0; width: 10px; height: 10px; border-radius: 999px; margin-top: 6px; }
+    .grave .ponto { background: var(--vermelho-ponto); }
+    .medio .ponto { background: var(--laranja); }
+    .ok .ponto { background: var(--verde); }
+    .alerta-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+    .alerta-txt strong { font-size: 14px; }
+    .alerta-txt span { font-size: 13px; color: var(--suave); line-height: 1.45; }
+    .acao { flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--vermelho); text-decoration: none; padding: 6px 2px; background: none; border: 0; cursor: pointer; }
+    .acao:hover { text-decoration: underline; }
+    .acao:disabled { color: var(--apagado); cursor: wait; text-decoration: none; }
 
-    /* ── Total badge ── */
-    .total-row {
-      display: flex; align-items: stretch; gap: 8px;
-    }
-    .total-box {
-      flex: 1; background: #f7f9fc; border-radius: 8px; padding: 8px 12px;
-    }
-    .total-box.cancel { background: #fef2f2; }
-    .total-num { font-size: 1.4rem; font-weight: 700; color: #1a1a2e; line-height: 1; }
-    .total-box.cancel .total-num { color: #b91c1c; }
-    .total-label { font-size: .78rem; color: #666; margin-top: 2px; }
+    /* ── Gráfico por dia ── */
+    .legenda { display: flex; gap: 14px; font-size: 12px; color: var(--suave); }
+    .legenda span { display: flex; align-items: center; gap: 6px; }
+    .legenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+    .grafico { display: grid; align-items: end; height: 220px; border-bottom: 1px solid rgba(28,53,82,.15); padding: 0 4px; }
+    .col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; min-width: 0; }
+    .col-num { font-size: 13px; font-weight: 700; }
+    .col-barras { display: flex; gap: 4px; align-items: flex-end; justify-content: center; width: 100%; height: 180px; }
+    .barra-at, .barra-ant { border-radius: 5px 5px 0 0; min-height: 2px; }
+    .barra-at { background: var(--navy); }
+    .barra-ant { background: var(--fantasma); }
+    .rotulos { display: grid; padding: 0 4px; margin-top: -8px; }
+    #grafico { display: flex; flex-direction: column; gap: 14px; }
+    .rotulos span { text-align: center; font-size: 12px; color: var(--suave); white-space: nowrap; overflow: visible; }
 
-    /* ── Funil ── */
-    .funil-titulo {
-      font-size: .7rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .08em; color: #aaa; margin-bottom: 10px;
-    }
-    .funil-step { margin-bottom: 6px; }
-    .funil-step-label {
-      display: flex; justify-content: space-between; align-items: baseline;
-      margin-bottom: 3px;
-    }
-    .step-name { font-size: .8rem; color: #444; }
-    .step-right { display: flex; align-items: center; gap: 8px; }
-    .step-count { font-size: .82rem; font-weight: 600; color: #1a1a2e; min-width: 32px; text-align: right; }
-    .step-pct { font-size: .72rem; font-weight: 600; padding: 1px 6px; border-radius: 10px; white-space: nowrap; min-width: 40px; text-align: center; }
-    .verde   { background: #d1fae5; color: #065f46; }
-    .amarelo { background: #fef3c7; color: #92400e; }
-    .vermelho{ background: #fee2e2; color: #991b1b; }
-    .neutro  { background: #f3f4f6; color: #9ca3af; font-size: .7rem; }
+    /* ── Funil do site ── */
+    .destaque { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--vermelho-fundo); }
+    .destaque b { flex-shrink: 0; font-family: var(--titulo); font-size: 18px; color: var(--vermelho); }
+    .destaque span { font-size: 13px; line-height: 1.5; }
+    .funil { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .funil li { display: grid; grid-template-columns: 150px minmax(0, 1fr) 56px 64px; align-items: center; gap: 12px; }
+    .funil .et { font-size: 13px; font-weight: 600; }
+    .trilho { height: 12px; border-radius: 999px; background: var(--trilho); overflow: hidden; }
+    .trilho div { height: 100%; border-radius: 999px; background: var(--navy); }
+    .funil .num { font-size: 13px; font-weight: 700; text-align: right; }
+    .funil .queda { font-size: 12px; font-weight: 700; text-align: right; color: var(--suave); }
+    .funil li.pior .trilho div { background: var(--coral); }
+    .funil li.pior .queda { color: var(--vermelho); }
+    .funil li.topo .trilho div { background: var(--fantasma); }
 
-    /* Barra */
-    .bar-track {
-      height: 6px; background: #f0f2f5; border-radius: 99px; overflow: hidden;
-    }
-    .bar-fill {
-      height: 100%; border-radius: 99px;
-      transition: width .5s cubic-bezier(.4,0,.2,1);
-    }
-    .bar-verde   { background: linear-gradient(90deg, #10b981, #34d399); }
-    .bar-amarelo { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-    .bar-vermelho{ background: linear-gradient(90deg, #ef4444, #f87171); }
-    .bar-neutro  { background: #d1d5db; }
+    /* ── Tabelas ── */
+    .rolagem { overflow-x: auto; position: relative; } /* relative: o .so-leitor do cabeçalho não escapa da rolagem */
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead tr { text-align: left; color: var(--suave); font-size: 12px; }
+    th, td { padding: 11px 6px; }
+    thead th { padding: 8px 6px; font-weight: 600; }
+    tbody tr { border-top: 1px solid var(--linha); }
+    tbody th { text-align: left; font-weight: 600; }
+    .dir { text-align: right; }
+    .selo { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+    .s-verde { color: var(--verde); background: var(--verde-fundo); }
+    .s-amarelo { color: var(--amarelo); background: var(--amarelo-fundo); }
+    .s-vermelho { color: var(--vermelho); background: var(--vermelho-fundo); }
+    .s-cinza { color: var(--suave); background: var(--trilho); }
+    .s-azul { color: var(--azul); background: var(--azul-fundo); }
+    .dica { padding: 12px 14px; border-radius: 12px; background: var(--trilho); font-size: 13px; line-height: 1.5; }
+    .dica code { background: #fff; padding: 1px 5px; border-radius: 5px; font-size: 12px; }
 
-    .sem-dados { font-size: .82rem; color: #aaa; font-style: italic; }
+    /* Salões */
+    #tab-saloes { min-width: 880px; }
+    #tab-saloes th, #tab-saloes td { padding: 14px 10px; }
+    #tab-saloes thead th { padding: 8px 10px; }
+    .nome-salao { display: block; font-weight: 700; }
+    .slug { display: block; font-size: 12px; font-weight: 400; color: var(--apagado); }
+    .mini { display: flex; align-items: center; gap: 10px; }
+    .mini strong { min-width: 24px; }
+    .sparks { display: flex; align-items: flex-end; gap: 3px; height: 28px; }
+    .sparks span { width: 7px; border-radius: 2px; background: #9fb8dc; min-height: 2px; }
+    .atrasado { color: var(--vermelho) !important; }
+    .ver { font-weight: 700; font-size: 13px; text-decoration: none; white-space: nowrap; background: none; border: 0; color: var(--navy); cursor: pointer; padding: 6px 0; }
+    .ver:hover { color: var(--vermelho-ponto); }
+    tr.detalhe { border-top: 0; }
+    tr.detalhe > td { padding: 0 10px 18px; }
+    .det-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; background: var(--fundo); border-radius: 12px; padding: 16px; }
+    .det-grade h3 { margin: 0 0 10px; font-size: 13px; color: var(--suave); }
+    .det-grade .funil li { grid-template-columns: 170px minmax(0, 1fr) 44px 56px; }
 
-    /* ── Login overlay ── */
-    #login-overlay {
-      position: fixed; inset: 0; background: rgba(15,15,30,.55);
-      display: flex; align-items: center; justify-content: center; z-index: 100;
-      backdrop-filter: blur(4px);
-    }
-    #login-box {
-      background: #fff; border-radius: 16px; padding: 36px 32px; width: 340px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.2);
-    }
-    #login-box h2 { font-size: 1.1rem; margin-bottom: 6px; }
-    #login-box p  { font-size: .82rem; color: #888; margin-bottom: 22px; }
-    #login-box input {
-      width: 100%; border: 1px solid #d0d5dd; border-radius: 10px;
-      padding: 11px 14px; font-size: .9rem; margin-bottom: 12px; outline: none;
-    }
-    #login-box input:focus { border-color: #1a1a2e; }
-    #login-box button {
-      width: 100%; background: #1a1a2e; color: #fff; border: none;
-      border-radius: 10px; padding: 12px; font-size: .9rem; cursor: pointer;
-      font-weight: 600;
-    }
-    #login-box button:hover { background: #2d2d4e; }
-    #login-erro { color: #dc2626; font-size: .8rem; margin-top: 10px; text-align: center; }
+    /* Pedidos */
+    .pedidos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+    .pedidos li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 4px; border-top: 1px solid var(--linha); }
+    .pedidos code { font-size: 13px; color: var(--suave); min-width: 96px; }
+    .pedidos strong { flex: 1 1 180px; min-width: 0; }
+    .pedidos .quando { font-size: 13px; color: var(--apagado); min-width: 110px; }
+    .pedidos .acao { color: var(--navy); }
+    .erro-acao { flex-basis: 100%; font-size: 12px; color: var(--vermelho); margin: 0; }
 
-    /* Site do SlotMe (provisório — o redesenho vem depois) */
-    #site { margin-bottom: 28px; }
-    #site h2.secao { font-size: 1.05rem; margin: 0 0 12px; }
-    .tabela-wrap { overflow-x: auto; margin-bottom: 16px; }
-    .tabela { width: 100%; border-collapse: collapse; font-size: .85rem; }
-    .tabela th, .tabela td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; text-align: right; white-space: nowrap; }
-    .tabela th:first-child, .tabela td:first-child { text-align: left; }
-    .tabela thead th { font-weight: 600; color: #6b7280; }
-    .tabela .pct { color: #9ca3af; font-size: .75rem; margin-left: 4px; }
+    /* ── Login ── */
+    #login { position: fixed; inset: 0; background: rgba(22,40,63,.6); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); padding: 16px; }
+    #login form { background: #fff; border-radius: 16px; padding: 32px 28px; width: 100%; max-width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,.2); display: flex; flex-direction: column; gap: 12px; }
+    #login h2 { font-size: 19px; }
+    #login p { margin: 0 0 8px; font-size: 13px; color: var(--suave); }
+    #login input { width: 100%; border: 1.5px solid rgba(28,53,82,.22); border-radius: 10px; padding: 11px 14px; font: inherit; font-size: 15px; color: var(--navy); }
+    #login input:focus { outline: 2px solid var(--navy); outline-offset: 1px; }
+    #login button { background: var(--navy); color: #fff; border: 0; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    #login button:hover { background: var(--navy-escuro); }
+    #login-erro { color: var(--vermelho); font-size: 13px; text-align: center; min-height: 1em; }
+
+    @media (max-width: 640px) {
+      .cab, .barra-in { padding-left: 16px; padding-right: 16px; }
+      main { padding: 16px; gap: 16px; }
+      .linha-cartoes { gap: 16px; }
+      .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .kpi { padding: 14px; }
+      .kpi-val { font-size: 26px; }
+      .kpi-det { display: none; }
+      .voltar { display: none; }
+      #status { margin-left: 0; flex-basis: 100%; }
+      .funil li { grid-template-columns: 96px minmax(0, 1fr) 40px 48px; gap: 8px; }
+      .funil .et { font-size: 12px; }
+      .col-num { font-size: 11px; }
+      .rotulos span { font-size: 11px; }
+    }
   </style>
 </head>
 <body>
 
-<div id="login-overlay">
-  <div id="login-box">
-    <h2>SlotMe Métricas</h2>
+<div id="login" role="dialog" aria-modal="true" aria-labelledby="login-titulo">
+  <form id="form-login">
+    <h2 id="login-titulo">SlotMe Métricas</h2>
     <p>Acesso restrito ao dono do painel.</p>
-    <input type="password" id="senha-input" placeholder="Senha" autocomplete="current-password">
-    <button id="btn-login">Entrar</button>
-    <div id="login-erro"></div>
-  </div>
+    <label class="so-leitor" for="senha">Senha</label>
+    <input type="password" id="senha" placeholder="Senha" autocomplete="current-password">
+    <button type="submit">Entrar</button>
+    <div id="login-erro" role="alert"></div>
+  </form>
 </div>
 
 <header>
-  <h1>SlotMe — Métricas</h1>
-  <div class="header-links">
-    <a href="/">← Painel</a>
+  <div class="cab">
+    <div class="marca">
+      <svg width="28" height="28" viewBox="0 0 52 52" aria-hidden="true"><rect x="2" y="6" width="48" height="44" rx="12" fill="#f2717f"></rect><rect x="12" y="2" width="4" height="10" rx="2" fill="#edf1f8"></rect><rect x="36" y="2" width="4" height="10" rx="2" fill="#edf1f8"></rect><path d="M16 28 l7 7 l14 -14" fill="none" stroke="#f5f7fb" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      <strong>SlotMe</strong>
+      <span>Métricas</span>
+    </div>
+    <nav aria-label="Seções">
+      <a href="#topo" class="atual">Visão geral</a>
+      <a href="#saloes">Salões</a>
+      <a href="#site">Site e cadastro</a>
+      <a href="#pedidos">Pedidos</a>
+    </nav>
+    <a class="voltar" href="/painel">← Voltar ao painel</a>
   </div>
 </header>
 
-<div class="toolbar">
-  <span class="toolbar-label">Período:</span>
-  <button class="btn-p ativo" data-dias="7">7 dias</button>
-  <button class="btn-p" data-dias="30">30 dias</button>
-  <button class="btn-p" data-dias="90">90 dias</button>
-  <div class="sep"></div>
-  <input type="date" id="dt-inicio" title="De">
-  <input type="date" id="dt-fim" title="Até">
+<div class="barra">
+  <div class="barra-in">
+    <span class="barra-rot" id="rot-periodo">Período</span>
+    <div role="group" aria-labelledby="rot-periodo" style="display:flex;flex-wrap:wrap;gap:8px">
+      <button type="button" class="btn-p" data-dias="1">Hoje</button>
+      <button type="button" class="btn-p" data-dias="7">7 dias</button>
+      <button type="button" class="btn-p" data-dias="30">30 dias</button>
+      <button type="button" class="btn-p" data-dias="90">90 dias</button>
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <label class="comparar"><input type="checkbox" id="comparar"><span id="rot-comparar">Comparar com o período anterior</span></label>
+    <span class="sep" aria-hidden="true"></span>
+    <div class="datas">
+      <label for="dt-inicio">De</label><input type="date" id="dt-inicio">
+      <label for="dt-fim">até</label><input type="date" id="dt-fim">
+    </div>
+    <span id="status" aria-live="polite">Carregando…</span>
+  </div>
 </div>
 
-<main>
-  <div id="status">Carregando…</div>
-  <section id="site"></section>
-  <div class="grid" id="grid"></div>
+<main id="topo">
+  <section class="kpis" id="kpis" aria-label="Resumo"></section>
+
+  <div class="linha-cartoes">
+    <section class="cartao" aria-labelledby="t-atencao" style="flex: 1 1 380px">
+      <div class="cab-cartao">
+        <h2 id="t-atencao">Precisa de atenção</h2>
+        <span class="contador" id="n-alertas">0</span>
+      </div>
+      <div id="alertas" style="display:flex;flex-direction:column;gap:10px"></div>
+    </section>
+
+    <section class="cartao" aria-labelledby="t-dias" style="flex: 2 1 560px; gap: 16px">
+      <div class="cab-cartao">
+        <h2 id="t-dias">Agendamentos por dia</h2>
+        <div class="legenda" id="legenda"></div>
+      </div>
+      <div id="grafico"></div>
+      <p class="nota" id="nota-dias" style="font-size:13px;color:var(--suave)"></p>
+    </section>
+  </div>
+
+  <section id="site" class="linha-cartoes" aria-labelledby="t-site">
+    <div class="cartao" style="flex: 3 1 560px">
+      <div>
+        <h2 id="t-site">Funil do site e do cadastro</h2>
+        <span class="sub">slotme.agendamentos.app.br · de quem visitou até quem enviou o cadastro</span>
+      </div>
+      <div id="funil-site"></div>
+      <p class="nota">A última coluna é a perda em relação à etapa anterior. Contagem por pessoa (sessão), não por clique.</p>
+    </div>
+    <div class="cartao" style="flex: 2 1 380px">
+      <div>
+        <h2>De onde vêm os cadastros</h2>
+        <span class="sub">Pela origem do link (UTM) de quem chegou ao site</span>
+      </div>
+      <div class="rolagem" id="origens"></div>
+      <div class="dica">Use links com <code>?utm_source=instagram</code> ou <code>?utm_source=facebook</code> nos anúncios e na bio para separar as origens aqui.</div>
+    </div>
+  </section>
+
+  <section id="saloes" class="cartao" aria-labelledby="t-saloes" style="gap: 12px">
+    <div class="cab-cartao">
+      <h2 id="t-saloes">Salões</h2>
+      <span class="sub">Ordenado por: precisa de atenção primeiro</span>
+    </div>
+    <div class="rolagem" id="saloes-tabela"></div>
+  </section>
+
+  <section id="pedidos" class="cartao" aria-labelledby="t-pedidos" style="gap: 12px">
+    <div class="cab-cartao">
+      <h2 id="t-pedidos">Pedidos do cadastro automático</h2>
+      <span class="sub" id="pedidos-24h"></span>
+    </div>
+    <div id="pedidos-lista"></div>
+  </section>
 </main>
 
 <script>
 // ── Utilitários ──────────────────────────────────────────────────────────────
+const $ = (s) => document.querySelector(s);
 const fmt = (n) => (n || 0).toLocaleString('pt-BR');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pctTxt = (v, casas = 0) => v.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas }) + '%';
+const DIA_MS = 86400000;
 // Datas em horário de São Paulo (UTC-3): às 22h ainda é "hoje", não amanhã.
 const SP_MS = 3 * 3600000;
-const hoje  = () => new Date(Date.now() - SP_MS).toISOString().slice(0, 10);
-const atras = (n) => new Date(Date.now() - SP_MS - n * 86400000).toISOString().slice(0, 10);
+const diaSP = (ms = Date.now()) => new Date(ms - SP_MS).toISOString().slice(0, 10);
+const somaDias = (d, n) => { const [a, m, dd] = d.split('-').map(Number); return new Date(Date.UTC(a, m - 1, dd + n)).toISOString().slice(0, 10); };
+const nDias = (ini, fim) => Math.round((Date.parse(fim) - Date.parse(ini)) / DIA_MS) + 1;
+const listaDias = (ini, fim) => { const out = []; for (let d = ini; d <= fim && out.length < 400; d = somaDias(d, 1)) out.push(d); return out; };
+const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const SEMANA_LONGA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const diaSemana = (d) => new Date(d + 'T12:00:00Z').getUTCDay();
+const dataCurta = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+const horaSP = (iso) => new Date(Date.parse(iso) - SP_MS).toISOString().slice(11, 16);
 
-function classePct(p) {
-  if (p === null) return 'neutro';
-  return p >= 60 ? 'verde' : p >= 30 ? 'amarelo' : 'vermelho';
+// "hoje, 14:20" / "ontem, 18:05" / "há 9 dias"
+function quando(iso) {
+  if (!iso) return 'nunca';
+  const dias = Math.round((Date.parse(diaSP()) - Date.parse(diaSP(Date.parse(iso)))) / DIA_MS);
+  if (dias <= 0) return `hoje, ${horaSP(iso)}`;
+  if (dias === 1) return `ontem, ${horaSP(iso)}`;
+  return `há ${dias} dias`;
 }
+const diasDesde = (iso) => iso ? Math.floor((Date.now() - Date.parse(iso)) / DIA_MS) : Infinity;
+const linkWhats = (n) => { const d = String(n || '').replace(/\D/g, ''); return d.length >= 10 ? `https://wa.me/${d}` : ''; };
 
-// ── Período ──────────────────────────────────────────────────────────────────
-let inicio = atras(7), fim = hoje();
-document.getElementById('dt-inicio').value = inicio;
-document.getElementById('dt-fim').value    = fim;
+const lerLocal = (k, padrao) => { try { const v = localStorage.getItem(k); return v === null ? padrao : JSON.parse(v); } catch { return padrao; } };
+const gravarLocal = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sem storage */ } };
 
-document.querySelectorAll('.btn-p').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.btn-p').forEach((b) => b.classList.remove('ativo'));
-    btn.classList.add('ativo');
-    inicio = atras(+btn.dataset.dias);
-    fim    = hoje();
-    document.getElementById('dt-inicio').value = inicio;
-    document.getElementById('dt-fim').value    = fim;
-    carregar();
-  });
-});
-['dt-inicio', 'dt-fim'].forEach((id) => {
-  document.getElementById(id).addEventListener('change', (e) => {
-    if (id === 'dt-inicio') inicio = e.target.value;
-    else                    fim    = e.target.value;
-    document.querySelectorAll('.btn-p').forEach((b) => b.classList.remove('ativo'));
-    carregar();
-  });
-});
-
-// ── Renderizar barra + linha do funil ────────────────────────────────────────
-function renderStep(nome, valor, base, isFirst) {
-  const pct = (base && !isFirst) ? Math.round((valor / base) * 100) : null;
-  const cls = classePct(pct);
-  const barPct = base ? Math.round((valor / base) * 100) : (valor ? 100 : 0);
-  const barCls = 'bar-' + cls;
-
-  return `
-    <div class="funil-step">
-      <div class="funil-step-label">
-        <span class="step-name">${nome}</span>
-        <div class="step-right">
-          <span class="step-count">${fmt(valor)}</span>
-          ${pct !== null
-            ? `<span class="step-pct ${cls}">${pct}%</span>`
-            : `<span class="step-pct neutro">topo</span>`}
-        </div>
-      </div>
-      <div class="bar-track">
-        <div class="bar-fill ${barCls}" style="width:${barPct}%"></div>
-      </div>
-    </div>`;
-}
-
-// ── Renderizar a linha de cancelamentos (lógica invertida: alto % é ruim) ─────
-function renderCancelStep(cancelados, criados) {
-  const pct = criados ? Math.round((cancelados / criados) * 100) : null;
-  const barPct = criados ? Math.round((cancelados / criados) * 100) : (cancelados ? 100 : 0);
-  return `
-    <div class="funil-step">
-      <div class="funil-step-label">
-        <span class="step-name">Cancelados ✗</span>
-        <div class="step-right">
-          <span class="step-count">${fmt(cancelados)}</span>
-          ${pct !== null
-            ? `<span class="step-pct vermelho">${pct}%</span>`
-            : `<span class="step-pct neutro">—</span>`}
-        </div>
-      </div>
-      <div class="bar-track">
-        <div class="bar-fill bar-vermelho" style="width:${barPct}%"></div>
-      </div>
-    </div>`;
-}
-
-// ── Renderizar um bloco de funil (LP ou agendamento) ─────────────────────────
-function renderFunil(titulo, etapas, dados) {
-  const top = etapas[0]?.[1] || 0;
-  const algum = etapas.some(([,v]) => v > 0);
-
-  let html = `<div><div class="funil-titulo">${titulo}</div>`;
-  if (!algum) {
-    html += `<div class="sem-dados">Sem dados no período</div></div>`;
-    return html;
-  }
-  etapas.forEach(([nome, val], i) => {
-    html += renderStep(nome, val, top, i === 0);
-  });
-  // Cancelamentos: % sobre o total de agendamentos criados (confirmados + cancelados).
-  if (dados) {
-    const criados = (dados.agendamentosConfirmados || 0) + (dados.agendamentosCancelados || 0);
-    html += renderCancelStep(dados.agendamentosCancelados || 0, criados);
-  }
-  html += `</div>`;
-  return html;
-}
-
-// ── Renderizar card de um cliente ────────────────────────────────────────────
-function renderCard(slug, d) {
-  const lp = d.lp, f = d.funil;
-
-  const etapasLp = [
-    ['Visitou a landing page',    lp.lp_vista],
-    ['Clicou em Agendar',         lp.lp_clicou_agendar],
-    ['Clicou no WhatsApp',        lp.lp_clicou_whatsapp],
-  ];
-  const etapasFunil = [
-    ['Abriu a página de agendamento', f.pagina_vista],
-    ['Escolheu profissional',         f.profissional_selecionado],
-    ['Escolheu serviço',              f.servico_selecionado],
-    ['Escolheu horário',              f.horario_selecionado],
-    ['Preencheu dados',               f.dados_preenchidos],
-    ['Agendamento criado ✓',          f.agendamento_criado],
-  ];
-
-  const temDados = [...etapasLp, ...etapasFunil].some(([,v]) => v > 0);
-
-  return `
-    <div class="card">
-      <div class="card-head">
-        <h2>${d.nome || slug}</h2>
-        <span class="slug">${slug}</span>
-      </div>
-      <div class="card-body">
-        ${temDados ? `
-          <div class="total-row">
-            <div class="total-box">
-              <div class="total-num">${fmt(d.agendamentosConfirmados)}</div>
-              <div class="total-label">confirmados no período</div>
-            </div>
-            <div class="total-box cancel">
-              <div class="total-num">${fmt(d.agendamentosCancelados)}</div>
-              <div class="total-label">cancelados no período</div>
-            </div>
-          </div>
-          ${renderFunil('Landing Page → Agendamento', etapasLp)}
-          ${renderFunil('Funil de Agendamento', etapasFunil, d)}
-        ` : `<div class="sem-dados">Sem eventos registrados no período.</div>`}
-      </div>
-    </div>`;
-}
-
-// ── Site do SlotMe (slugs de METRICS_SLUGS_EXTRAS) ───────────────────────────
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const ROTULOS = {
-  lp_clicou_agendar: 'Clicou em Agendar',
-  lp_clicou_whatsapp: 'Clicou no WhatsApp',
-  lp_clicou_cliente: 'Clicou em um cliente',
-  lp_enviou_formulario: 'Enviou formulário',
-  cad_vista: 'Abriu o cadastro',
-  cad_etapa_voce: 'Etapa: Você',
-  cad_etapa_negocio: 'Etapa: Negócio',
-  cad_etapa_servicos: 'Etapa: Serviços',
-  cad_etapa_equipe: 'Etapa: Equipe',
-  cad_etapa_horarios: 'Etapa: Horários',
-  cad_etapa_visual: 'Etapa: Visual',
-  cad_etapa_revisao: 'Etapa: Revisão',
-  cad_enviado: 'Cadastro enviado ✓',
+// ── Estado ───────────────────────────────────────────────────────────────────
+const estado = {
+  preset: lerLocal('metricas.preset', 7),
+  comparar: lerLocal('metricas.comparar', true),
+  inicio: '', fim: '',
+  dados: null,          // último carregamento (para re-render sem refazer o fetch)
+  abertos: new Set(),   // salões com o detalhe aberto
 };
-const pct = (v, base) => (base ? `<span class="pct">${Math.round((v / base) * 100)}%</span>` : '');
 
-function renderSite(site) {
-  const slugs = Object.keys(site || {});
-  if (!slugs.length) return '';
-  return `<h2 class="secao">Site do SlotMe</h2>` + slugs.map((slug) => {
-    const s = site[slug];
-    const origens = s.por_origem || [];
-    const topo = s.funil[0]?.pessoas || 0;
-    const linhasCliques = Object.entries(s.cliques)
-      .map(([t, v]) => `<tr><td>${ROTULOS[t] || esc(t)}</td><td>${fmt(v)}${pct(v, s.visitas)}</td></tr>`).join('');
-    const linhasFunil = s.funil.map((e, i) => `<tr><td>${ROTULOS[e.tipo] || esc(e.tipo)}</td>`
-      + `<td>${fmt(e.pessoas)}${i ? pct(e.pessoas, topo) : ''}</td>`
-      + origens.map((o) => `<td>${fmt(o.funil[i].pessoas)}</td>`).join('') + `</tr>`).join('');
-    return `
-      <div class="card">
-        <div class="card-head"><h2>Pessoas no período</h2><span class="slug">${esc(slug)}</span></div>
-        <div class="card-body">
-          <div class="tabela-wrap"><table class="tabela">
-            <thead><tr><th>Landing page</th><th>Pessoas</th></tr></thead>
-            <tbody><tr><td>Visitas</td><td>${fmt(s.visitas)}</td></tr>${linhasCliques}</tbody>
-          </table></div>
-          <div class="tabela-wrap"><table class="tabela">
-            <thead><tr><th>Funil do cadastro</th><th>Total</th>${origens.map((o) => `<th>${esc(o.origem)}</th>`).join('')}</tr></thead>
-            <tbody>${linhasFunil}
-              <tr><td>Erro ao enviar ✗</td><td>${fmt(s.erros_envio)}</td>${origens.map((o) => `<td>${fmt(o.erros_envio)}</td>`).join('')}</tr>
-              <tr><td>Visitas (por origem)</td><td>${fmt(s.visitas)}</td>${origens.map((o) => `<td>${fmt(o.visitas)}</td>`).join('')}</tr>
-            </tbody>
-          </table></div>
-        </div>
-      </div>`;
+function aplicarPreset(n) {
+  estado.preset = n;
+  estado.fim = diaSP();
+  estado.inicio = somaDias(estado.fim, -(n - 1));
+}
+
+function periodoAnterior() {
+  const len = nDias(estado.inicio, estado.fim);
+  const fim = somaDias(estado.inicio, -1);
+  return { inicio: somaDias(fim, -(len - 1)), fim, len };
+}
+
+function sincronizarBarra() {
+  document.querySelectorAll('.btn-p').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.dias === estado.preset)));
+  $('#dt-inicio').value = estado.inicio;
+  $('#dt-fim').value = estado.fim;
+  $('#comparar').checked = estado.comparar;
+  const len = nDias(estado.inicio, estado.fim);
+  $('#rot-comparar').textContent = len === 1 ? 'Comparar com o dia anterior' : `Comparar com os ${len} dias anteriores`;
+}
+
+// ── API ──────────────────────────────────────────────────────────────────────
+class SemLogin extends Error {}
+async function api(url, opcoes) {
+  const r = await fetch(url, opcoes);
+  if (r.status === 401) throw new SemLogin();
+  if (!r.ok) {
+    let msg = 'Erro ' + r.status;
+    try { msg = (await r.json()).erro || msg; } catch { /* sem corpo */ }
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+async function carregar() {
+  const status = $('#status');
+  status.textContent = 'Carregando…';
+  sincronizarBarra();
+  const ant = periodoAnterior();
+  try {
+    const [atual, anterior, clientes, pedidos] = await Promise.allSettled([
+      api(`/api/metricas?inicio=${estado.inicio}&fim=${estado.fim}`),
+      api(`/api/metricas?inicio=${ant.inicio}&fim=${ant.fim}`),
+      api('/api/clientes'),
+      api('/api/pedidos'),
+    ]);
+    const falhas = [atual, anterior, clientes, pedidos].filter((r) => r.status === 'rejected').map((r) => r.reason);
+    if (falhas.some((e) => e instanceof SemLogin)) { mostrarLogin(); return; }
+    if (atual.status === 'rejected') throw atual.reason;
+    estado.dados = {
+      atual: atual.value,
+      anterior: anterior.status === 'fulfilled' ? anterior.value : null,
+      clientes: clientes.status === 'fulfilled' ? clientes.value : [],
+      pedidos: pedidos.status === 'fulfilled' ? pedidos.value : [],
+    };
+    renderizar();
+    const agora = new Date(Date.now() - SP_MS).toISOString().slice(11, 16);
+    status.textContent = `${dataCurta(estado.inicio)} → ${dataCurta(estado.fim)} · horário de Brasília · atualizado às ${agora}`
+      + (falhas.length ? ' · alguns dados não carregaram' : '');
+  } catch (e) {
+    status.textContent = 'Erro ao carregar: ' + e.message;
+  }
+}
+
+// ── Montagem dos dados ───────────────────────────────────────────────────────
+const PASSOS_AGENDA = [
+  ['pagina_vista', 'Abriu a página'],
+  ['profissional_selecionado', 'Escolher profissional'],
+  ['servico_selecionado', 'Escolher serviço'],
+  ['horario_selecionado', 'Escolher horário'],
+  ['dados_preenchidos', 'Preencher dados'],
+  ['agendamento_criado', 'Confirmar'],
+];
+const PASSOS_LP = [
+  ['lp_vista', 'Visitou a landing page'],
+  ['lp_clicou_agendar', 'Clicou em Agendar'],
+  ['lp_clicou_whatsapp', 'Clicou no WhatsApp'],
+];
+
+// Maior perda entre passos seguidos. Passo com 0 quando um passo depois dele tem
+// gente foi PULADO (ex.: salão com 1 profissional não mostra a escolha) — ignora.
+function maiorPerda(passos, minimo = 5) {
+  const usados = passos.filter(([, v], i) => v > 0 || !passos.slice(i + 1).some(([, w]) => w > 0));
+  let pior = null;
+  for (let i = 1; i < usados.length; i++) {
+    const base = usados[i - 1][1], v = usados[i][1];
+    if (base < minimo || v >= base) continue;
+    const queda = Math.round((1 - v / base) * 100);
+    if (!pior || queda > pior.queda) pior = { etapa: usados[i][0], de: usados[i - 1][0], base, perdidos: base - v, queda };
+  }
+  return pior;
+}
+
+function situacao(c, ped) {
+  if (c.ativo === false) return { txt: 'Pausado', cls: 's-cinza', tipo: 'pausado' };
+  if (c.ativo == null) return { txt: 'Não está no ar', cls: 's-cinza', tipo: 'fora' };
+  if (ped && ped.trial_ate) {
+    const faltam = Math.ceil((Date.parse(ped.trial_ate) - Date.now()) / DIA_MS);
+    if (faltam > 0) return { txt: `Em teste · falta${faltam > 1 ? 'm' : ''} ${faltam} dia${faltam > 1 ? 's' : ''}`, cls: 's-amarelo', tipo: 'teste', faltam };
+    return { txt: 'Teste encerrado', cls: 's-vermelho', tipo: 'encerrado', faltam };
+  }
+  return { txt: 'Ativo', cls: 's-verde', tipo: 'ativo' };
+}
+
+function montarSaloes(d) {
+  const pedidoPorSlug = {};
+  for (const p of d.pedidos) if (p.slug && !pedidoPorSlug[p.slug]) pedidoPorSlug[p.slug] = p; // lista vem do mais novo
+  const clientePorSlug = Object.fromEntries((d.clientes || []).map((c) => [c.slug, c]));
+  const dias = listaDias(estado.inicio, estado.fim);
+
+  return Object.entries(d.atual.clientes || {}).map(([slug, m]) => {
+    const c = clientePorSlug[slug] || { slug, ativo: null };
+    const ped = pedidoPorSlug[slug] || null;
+    const sit = situacao(c, ped);
+    const ant = d.anterior?.clientes?.[slug];
+    const total = (m.agendamentosConfirmados || 0) + (m.agendamentosCancelados || 0);
+    const passos = PASSOS_AGENDA.map(([k, rot]) => [rot, m.funil?.[k] || 0]);
+    const perda = maiorPerda(passos);
+    let serie = dias.map((dia) => m.porDia?.[dia] || 0);
+    if (serie.length > 21) { // períodos longos: soma por semana para caber na miniatura
+      const sem = [];
+      for (let i = 0; i < serie.length; i += 7) sem.push(serie.slice(i, i + 7).reduce((a, b) => a + b, 0));
+      serie = sem;
+    }
+    const noAr = sit.tipo === 'ativo' || sit.tipo === 'teste' || sit.tipo === 'encerrado';
+    // parado = 7+ dias sem agendamento; salão recém-criado (pedido < 7 dias) ainda não conta
+    const novo = !m.ultimoAgendamento && ped && diasDesde(ped.criado_em) < 7;
+    const parado = noAr && !novo && diasDesde(m.ultimoAgendamento) >= 7;
+    return {
+      slug, nome: m.nome || slug, m, sit, ped, total, serie, perda, parado, noAr,
+      totalAnt: ant ? (ant.agendamentosConfirmados || 0) + (ant.agendamentosCancelados || 0) : null,
+      cancelados: m.agendamentosCancelados || 0,
+      whats: linkWhats(ped?.contato?.whatsapp),
+      semVisitas: !(m.funil?.pagina_vista > 0),
+    };
+  }).map((s) => {
+    // prioridade: parado / teste no fim > resto; depois mais agendamentos primeiro
+    let p = 0;
+    if (s.parado) p += 3;
+    if (s.sit.tipo === 'encerrado') p += 3;
+    if (s.sit.tipo === 'teste' && s.sit.faltam <= 5) p += 2;
+    if (!s.noAr) p -= 1;
+    return { ...s, prioridade: p };
+  }).sort((a, b) => b.prioridade - a.prioridade || b.total - a.total || a.nome.localeCompare(b.nome));
+}
+
+const ETAPAS_SITE = {
+  lp_vista: 'Visitou o site',
+  cad_vista: 'Abriu o cadastro',
+  cad_etapa_voce: 'Você',
+  cad_etapa_negocio: 'Negócio',
+  cad_etapa_servicos: 'Serviços',
+  cad_etapa_equipe: 'Equipe',
+  cad_etapa_horarios: 'Horários',
+  cad_etapa_visual: 'Visual',
+  cad_etapa_revisao: 'Revisão',
+  cad_enviado: 'Enviou',
+};
+const POR_QUE = {
+  'Negócio': 'quando precisam dizer o nome e o tipo do negócio',
+  'Serviços': 'quando precisam cadastrar os serviços com preço',
+  'Equipe': 'quando precisam cadastrar a equipe',
+  'Horários': 'quando precisam informar os horários',
+  'Visual': 'na escolha das cores',
+  'Revisão': 'antes de revisar o cadastro',
+  'Enviou': 'na revisão, sem enviar',
+};
+
+function montarSite(site) {
+  if (!site) return null;
+  const slug = Object.keys(site)[0];
+  if (!slug) return null;
+  const s = site[slug];
+  const etapas = [['lp_vista', s.visitas || 0], ...s.funil.map((e) => [e.tipo, e.pessoas || 0])];
+  const passos = etapas.map(([t, v]) => [ETAPAS_SITE[t] || t, v]);
+  // a perda "visitou → abriu o cadastro" não entra no destaque: é o topo do funil
+  const perda = maiorPerda(passos.slice(1));
+  return { slug, s, passos, perda, enviados: s.funil[s.funil.length - 1]?.pessoas || 0, visitas: s.visitas || 0 };
+}
+
+// ── Renderização ─────────────────────────────────────────────────────────────
+function delta(atual, anterior, { melhorSobe = true, rotuloAnt }) {
+  if (anterior == null) return { txt: '', cor: 'var(--suave)' };
+  if (atual === anterior) return { txt: '= igual ao período anterior', cor: 'var(--suave)' };
+  if (!anterior) return { txt: `↑ ${fmt(atual)} a mais ${rotuloAnt}`, cor: melhorSobe ? 'var(--verde)' : 'var(--vermelho)' };
+  const p = Math.round(((atual - anterior) / anterior) * 100);
+  const sobe = atual > anterior;
+  return { txt: `${sobe ? '↑' : '↓'} ${Math.abs(p)}% vs. ${rotuloAnt.replace(/^que /, '')}`, cor: sobe === melhorSobe ? 'var(--verde)' : 'var(--vermelho)' };
+}
+
+function renderKpis(d, saloes, site) {
+  const len = nDias(estado.inicio, estado.fim);
+  const rotAnt = len === 1 ? 'que o dia anterior' : `que os ${len} dias anteriores`;
+  const comparar = estado.comparar && d.anterior;
+  const soma = (cl, k) => Object.values(cl || {}).reduce((a, m) => a + (m[k] || 0), 0);
+  const conf = soma(d.atual.clientes, 'agendamentosConfirmados'), canc = soma(d.atual.clientes, 'agendamentosCancelados');
+  const criados = conf + canc;
+  const criadosAnt = d.anterior ? soma(d.anterior.clientes, 'agendamentosConfirmados') + soma(d.anterior.clientes, 'agendamentosCancelados') : null;
+  const cancAnt = d.anterior ? soma(d.anterior.clientes, 'agendamentosCancelados') : null;
+  const taxa = criados ? (canc / criados) * 100 : 0;
+  const taxaAnt = criadosAnt ? (cancAnt / criadosAnt) * 100 : null;
+
+  const kpis = [];
+  const dAg = comparar ? delta(criados, criadosAnt, { rotuloAnt: rotAnt }) : { txt: '' };
+  kpis.push({ rot: 'Agendamentos pelo link', val: fmt(criados), delta: dAg, det: comparar ? `${fmt(criadosAnt)} no período anterior` : `${fmt(conf)} confirmados` });
+
+  let dTaxa = { txt: '' };
+  if (comparar && taxaAnt != null && criados) {
+    const pontos = taxa - taxaAnt;
+    dTaxa = Math.abs(pontos) < 0.05
+      ? { txt: '= igual ao período anterior', cor: 'var(--suave)' }
+      : { txt: `${pontos < 0 ? '↓' : '↑'} ${pctTxt(Math.abs(pontos), 1).replace('%', '')} ponto${Math.abs(pontos) >= 2 ? 's' : ''} (${pontos < 0 ? 'melhorou' : 'piorou'})`, cor: pontos < 0 ? 'var(--verde)' : 'var(--vermelho)' };
+  }
+  kpis.push({ rot: 'Taxa de cancelamento', val: criados ? pctTxt(taxa, 1) : '—', delta: dTaxa, det: `${fmt(canc)} de ${fmt(criados)} agendamentos` });
+
+  const conta = (t) => saloes.filter((s) => s.sit.tipo === t).length;
+  const partes = [];
+  if (conta('ativo')) partes.push(`${conta('ativo')} ativo${conta('ativo') > 1 ? 's' : ''}`);
+  if (conta('teste')) partes.push(`${conta('teste')} em teste`);
+  if (conta('encerrado')) partes.push(`${conta('encerrado')} com teste encerrado`);
+  if (conta('pausado')) partes.push(`${conta('pausado')} pausado${conta('pausado') > 1 ? 's' : ''}`);
+  if (conta('fora')) partes.push(`${conta('fora')} fora do ar`);
+  const acabando = saloes.filter((s) => s.sit.tipo === 'teste' && s.sit.faltam <= 7).length;
+  kpis.push({ rot: 'Salões', val: fmt(saloes.length), delta: { txt: partes.join(' · '), cor: 'var(--suave)' },
+    det: acabando ? `${acabando} teste${acabando > 1 ? 's terminam' : ' termina'} em até 7 dias` : '' });
+
+  if (site) {
+    const sAnt = d.anterior ? montarSite(d.anterior.site) : null;
+    const dCad = comparar && sAnt ? delta(site.enviados, sAnt.enviados, { rotuloAnt: rotAnt }) : { txt: '' };
+    kpis.push({ rot: 'Cadastros pelo site', val: fmt(site.enviados), delta: dCad,
+      det: site.visitas ? `${pctTxt((site.enviados / site.visitas) * 100, 1)} das ${fmt(site.visitas)} visitas` : 'sem visitas no período' });
+  }
+
+  $('#kpis').innerHTML = kpis.map((k) => `
+    <div class="kpi">
+      <span class="kpi-rot">${esc(k.rot)}</span>
+      <span class="kpi-val">${esc(k.val)}</span>
+      ${k.delta.txt ? `<span class="kpi-delta" style="color:${k.delta.cor}">${esc(k.delta.txt)}</span>` : ''}
+      ${k.det ? `<span class="kpi-det">${esc(k.det)}</span>` : ''}
+    </div>`).join('');
+}
+
+function renderAlertas(saloes, site, pedidos) {
+  const lista = [];
+  for (const s of saloes) {
+    if (s.parado) {
+      const u = s.m.ultimoAgendamento;
+      lista.push({ nivel: 'grave', titulo: `${s.nome} está parado`,
+        texto: u ? `Nenhum agendamento há ${diasDesde(u)} dias. Vale perguntar se divulgou o link.` : 'Ainda não recebeu nenhum agendamento pelo link.',
+        acao: s.whats ? { tipo: 'link', txt: 'WhatsApp', href: s.whats } : { tipo: 'salao', txt: 'Ver salão', slug: s.slug } });
+    }
+    if (s.sit.tipo === 'teste' && s.sit.faltam <= 5) {
+      lista.push({ nivel: 'medio', titulo: `Teste de ${s.nome} termina em ${s.sit.faltam} dia${s.sit.faltam > 1 ? 's' : ''}`,
+        texto: `${fmt(s.total)} agendamento${s.total === 1 ? '' : 's'} pelo link no período. Hora de mandar o link de pagamento.`,
+        acao: s.whats ? { tipo: 'link', txt: 'Cobrar', href: s.whats } : { tipo: 'salao', txt: 'Ver salão', slug: s.slug } });
+    }
+    if (s.sit.tipo === 'encerrado') {
+      lista.push({ nivel: 'grave', titulo: `Teste de ${s.nome} já terminou`,
+        texto: `Encerrou há ${Math.abs(s.sit.faltam)} dia${Math.abs(s.sit.faltam) === 1 ? '' : 's'} e o salão continua no ar.`,
+        acao: s.whats ? { tipo: 'link', txt: 'WhatsApp', href: s.whats } : { tipo: 'salao', txt: 'Ver salão', slug: s.slug } });
+    }
+  }
+  for (const p of pedidos) {
+    if (p.status === 'erro') lista.push({ nivel: 'grave', titulo: `Pedido ${p.protocolo} com erro`,
+      texto: `${p.negocio || 'Sem nome'}: ${p.erro ? String(p.erro).slice(0, 140) : 'falhou durante a criação.'}`,
+      acao: { tipo: 'reprocessar', txt: 'Tentar de novo', protocolo: p.protocolo } });
+    if (p.status === 'aguardando') lista.push({ nivel: 'medio', titulo: `Pedido ${p.protocolo} aguardando`,
+      texto: `${p.negocio || 'Sem nome'}: passou do limite de criações do dia.`,
+      acao: { tipo: 'reprocessar', txt: 'Liberar', protocolo: p.protocolo } });
+  }
+  if (site?.perda && site.perda.queda >= 30) {
+    lista.push({ nivel: 'medio', titulo: `Cadastro perde gente ${site.perda.etapa === 'Enviou' ? 'na revisão' : `em ${site.perda.etapa}`}`,
+      texto: `${site.perda.queda}% desistem nessa etapa do site.`, acao: { tipo: 'link', txt: 'Ver funil', href: '#site', interno: true } });
+  }
+  if (site?.s.erros_envio) {
+    lista.push({ nivel: 'grave', titulo: 'Erro ao enviar o cadastro',
+      texto: `${fmt(site.s.erros_envio)} pessoa${site.s.erros_envio > 1 ? 's tiveram' : ' teve'} erro ao enviar no período.`,
+      acao: { tipo: 'link', txt: 'Ver pedidos', href: '#pedidos', interno: true } });
+  }
+  lista.sort((a, b) => (a.nivel === 'grave' ? 0 : 1) - (b.nivel === 'grave' ? 0 : 1));
+
+  const n = $('#n-alertas');
+  n.textContent = String(lista.length);
+  n.classList.toggle('zero', !lista.length);
+  if (!lista.length) {
+    $('#alertas').innerHTML = `<div class="alerta ok"><span class="ponto"></span><div class="alerta-txt"><strong>Tudo certo por aqui</strong><span>Nenhum salão parado, teste acabando ou pedido com erro.</span></div></div>`;
+    return;
+  }
+  $('#alertas').innerHTML = lista.map((a) => {
+    let acao = '';
+    if (a.acao.tipo === 'link') acao = `<a class="acao" href="${esc(a.acao.href)}"${a.acao.interno ? '' : ' target="_blank" rel="noopener"'}>${esc(a.acao.txt)}</a>`;
+    if (a.acao.tipo === 'salao') acao = `<button type="button" class="acao" data-abrir-salao="${esc(a.acao.slug)}">${esc(a.acao.txt)}</button>`;
+    if (a.acao.tipo === 'reprocessar') acao = `<button type="button" class="acao" data-reprocessar="${esc(a.acao.protocolo)}">${esc(a.acao.txt)}</button>`;
+    return `<div class="alerta ${a.nivel}"><span class="ponto"></span>
+      <div class="alerta-txt"><strong>${esc(a.titulo)}</strong><span>${esc(a.texto)}</span></div>${acao}</div>`;
   }).join('');
 }
 
-// ── Buscar e renderizar ───────────────────────────────────────────────────────
-async function carregar() {
-  const status = document.getElementById('status');
-  const grid   = document.getElementById('grid');
-  const secSite = document.getElementById('site');
-  status.textContent = 'Carregando…';
-  grid.innerHTML = '';
-  secSite.innerHTML = '';
-  try {
-    const r = await fetch(`/api/metricas?inicio=${inicio}&fim=${fim}`);
-    if (r.status === 401) { mostrarLogin(); return; }
-    if (!r.ok) throw new Error('Erro ' + r.status);
-    const { clientes: dados = {}, site = {} } = await r.json();
-    secSite.innerHTML = renderSite(site);
-    const slugs = Object.keys(dados).sort();
-    if (!slugs.length) { status.textContent = 'Nenhum cliente encontrado.'; return; }
-    status.textContent = `${slugs.length} cliente(s) · ${inicio} → ${fim} (horário de Brasília)`;
-    grid.innerHTML = slugs.map((s) => renderCard(s, dados[s])).join('');
-  } catch (e) {
-    status.textContent = 'Erro: ' + e.message;
+function renderGrafico(d) {
+  const dias = listaDias(estado.inicio, estado.fim);
+  const ant = periodoAnterior();
+  const diasAnt = listaDias(ant.inicio, ant.fim);
+  const somaDia = (cl, dia) => Object.values(cl || {}).reduce((a, m) => a + (m.porDia?.[dia] || 0), 0);
+  const comparar = estado.comparar && d.anterior;
+  const diarios = dias.map((dia, i) => ({
+    dia, total: somaDia(d.atual.clientes, dia),
+    anterior: comparar ? somaDia(d.anterior.clientes, diasAnt[i]) : 0,
+    diaAnt: diasAnt[i],
+  }));
+  // Períodos longos (mais de 31 dias) viram barras por SEMANA: 90 barras diárias não dão para ler.
+  const semanal = diarios.length > 31;
+  const pontos = semanal ? [] : diarios;
+  if (semanal) {
+    for (let i = 0; i < diarios.length; i += 7) {
+      const bloco = diarios.slice(i, i + 7);
+      pontos.push({ dia: bloco[0].dia, diaAnt: bloco[0].diaAnt, total: bloco.reduce((a, p) => a + p.total, 0), anterior: bloco.reduce((a, p) => a + p.anterior, 0) });
+    }
   }
+  $('#t-dias').textContent = semanal ? 'Agendamentos por semana' : 'Agendamentos por dia';
+  const max = Math.max(1, ...pontos.map((p) => Math.max(p.total, p.anterior)));
+  const n = pontos.length;
+  const gap = n > 45 ? 2 : n > 14 ? 4 : 12;
+  const cada = n <= 14 ? 1 : Math.ceil(n / 10);
+  const larg = n > 45 ? '90%' : comparar ? '38%' : '60%';
+  const alt = (v) => `${Math.max(1, Math.round((v / max) * 100))}%`;
+  const rotulo = (dia) => n <= 14 && !semanal ? `${SEMANA[diaSemana(dia)]} ${+dia.slice(8, 10)}` : dataCurta(dia);
+
+  $('#legenda').innerHTML = `<span><i style="background:var(--navy)"></i>${n === 1 ? 'Hoje' : 'Este período'}</span>`
+    + (comparar ? `<span><i style="background:var(--fantasma)"></i>${n === 1 ? 'Dia anterior' : 'Período anterior'}</span>` : '');
+
+  const total = diarios.reduce((a, p) => a + p.total, 0);
+  const descricao = pontos.map((p) => `${dataCurta(p.dia)}: ${p.total}`).join(', ');
+  $('#grafico').innerHTML = `
+    <div class="grafico" role="img" aria-label="${esc(`Agendamentos por dia. ${descricao}`)}" style="grid-template-columns:repeat(${n},minmax(0,1fr));gap:${gap}px">
+      ${pontos.map((p) => `
+        <div class="col" title="${esc(`${semanal ? 'Semana de ' : ''}${dataCurta(p.dia)}: ${p.total} agendamento${p.total === 1 ? '' : 's'}${comparar ? ` (antes, ${dataCurta(p.diaAnt)}: ${p.anterior})` : ''}`)}">
+          ${n <= 14 ? `<span class="col-num">${p.total}</span>` : ''}
+          <div class="col-barras" style="gap:${n > 45 ? 1 : 4}px">
+            ${comparar ? `<div class="barra-ant" style="width:${larg};max-width:22px;height:${p.anterior ? alt(p.anterior) : '2px'}"></div>` : ''}
+            <div class="barra-at" style="width:${larg};max-width:${n === 1 ? 60 : 22}px;height:${p.total ? alt(p.total) : '2px'}"></div>
+          </div>
+        </div>`).join('')}
+    </div>
+    <div class="rotulos" aria-hidden="true" style="grid-template-columns:repeat(${n},minmax(0,1fr));gap:${gap}px">
+      ${pontos.map((p, i) => `<span>${i % cada === 0 ? esc(rotulo(p.dia)) : ''}</span>`).join('')}
+    </div>`;
+
+  let nota = '';
+  if (!total) nota = 'Nenhum agendamento no período.';
+  else if (diarios.length >= 7 && total >= 10) {
+    const porSemana = [0, 0, 0, 0, 0, 0, 0];
+    for (const p of diarios) porSemana[diaSemana(p.dia)] += p.total;
+    const topo = porSemana.indexOf(Math.max(...porSemana));
+    nota = `${SEMANA_LONGA[topo]} concentra ${Math.round((porSemana[topo] / total) * 100)}% dos agendamentos do período.`;
+  } else nota = `${fmt(total)} agendamento${total === 1 ? '' : 's'} no período.`;
+  $('#nota-dias').textContent = nota;
 }
 
-// ── Login ─────────────────────────────────────────────────────────────────────
+function htmlFunil(passos, { topoClaro = false, base: baseFixa, pior } = {}) {
+  const base = baseFixa ?? Math.max(1, ...passos.map(([, v]) => v));
+  return `<ol class="funil">${passos.map(([rot, v], i) => {
+    const anterior = i ? passos[i - 1][1] : null;
+    const queda = i && anterior ? Math.round((1 - v / anterior) * 100) : null;
+    const cls = [topoClaro && i === 0 ? 'topo' : '', pior && pior === rot ? 'pior' : ''].join(' ');
+    const largura = topoClaro && i === 0 ? 100 : Math.min(100, Math.max(v ? 2 : 0, Math.round((v / base) * 100)));
+    return `<li class="${cls}">
+      <span class="et">${esc(rot)}</span>
+      <div class="trilho"><div style="width:${largura}%"></div></div>
+      <span class="num">${fmt(v)}</span>
+      <span class="queda">${queda == null ? '' : queda > 0 ? `−${queda}%` : queda < 0 ? `+${-queda}%` : '0%'}</span>
+    </li>`;
+  }).join('')}</ol>`;
+}
+
+function renderSite(site) {
+  if (!site) {
+    $('#funil-site').innerHTML = '<p class="vazio">O site do SlotMe ainda não mandou eventos.</p>';
+    $('#origens').innerHTML = '';
+    return;
+  }
+  const baseCad = Math.max(1, site.passos[1]?.[1] || 0);
+  let html = '';
+  if (site.perda) {
+    html += `<div class="destaque"><b>−${site.perda.queda}%</b><span><strong>Maior perda: de ${esc(site.perda.de)} para ${esc(site.perda.etapa)}.</strong>
+      ${fmt(site.perda.perdidos)} de ${fmt(site.perda.base)} pessoas param ${esc(POR_QUE[site.perda.etapa] || 'nessa etapa')}.</span></div>`;
+  }
+  if (!site.passos.some(([, v]) => v > 0)) html += '<p class="vazio">Nenhuma visita no período.</p>';
+  else html += htmlFunil(site.passos, { topoClaro: true, base: baseCad, pior: site.perda?.etapa });
+  $('#funil-site').innerHTML = html;
+
+  const NOMES = { instagram: 'Instagram', ig: 'Instagram', facebook: 'Facebook', fb: 'Facebook', google: 'Google', whatsapp: 'WhatsApp', tiktok: 'TikTok', indicacao: 'Indicação', '(direto)': 'Direto / sem origem' };
+  const origens = site.s.por_origem || [];
+  if (!origens.length) { $('#origens').innerHTML = '<p class="vazio">Sem visitas no período.</p>'; return; }
+  const melhor = Math.max(...origens.map((o) => o.visitas ? (o.funil.at(-1)?.pessoas || 0) / o.visitas : 0));
+  $('#origens').innerHTML = `<table>
+    <thead><tr><th scope="col">Origem</th><th scope="col" class="dir">Visitas</th><th scope="col" class="dir">Cadastros</th><th scope="col" class="dir">Conversão</th></tr></thead>
+    <tbody>${origens.map((o) => {
+      const cad = o.funil.at(-1)?.pessoas || 0;
+      const conv = o.visitas ? cad / o.visitas : null;
+      const cor = conv && conv === melhor && origens.length > 1 ? 'var(--verde)' : conv ? 'var(--navy)' : 'var(--suave)';
+      return `<tr><th scope="row">${esc(NOMES[o.origem] || o.origem)}</th><td class="dir">${fmt(o.visitas)}</td>
+        <td class="dir"><strong>${fmt(cad)}</strong></td><td class="dir" style="color:${cor};font-weight:600">${conv == null ? '—' : pctTxt(conv * 100, 1)}</td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function renderSaloes(saloes) {
+  if (!saloes.length) { $('#saloes-tabela').innerHTML = '<p class="vazio">Nenhum salão cadastrado.</p>'; return; }
+  const len = nDias(estado.inicio, estado.fim);
+  const rotPeriodo = len === 1 ? 'hoje' : `${len} dias`;
+  const linhas = saloes.map((s) => {
+    const maxS = Math.max(1, ...s.serie);
+    const sparks = s.serie.map((v) => `<span style="height:${v ? Math.max(3, Math.round((v / maxS) * 28)) : 2}px"></span>`).join('');
+    const canc = s.total ? `${fmt(s.cancelados)} (${pctTxt((s.cancelados / s.total) * 100, 1)})` : '—';
+    const perda = s.semVisitas ? 'Sem visitas na página' : s.perda ? `${s.perda.etapa} (−${s.perda.queda}%)` : 'Poucos dados';
+    const aberto = estado.abertos.has(s.slug);
+    const detalhe = aberto ? `<tr class="detalhe" id="det-${esc(s.slug)}"><td colspan="7"><div class="det-grade">
+        <div><h3>Landing page do salão</h3>${htmlFunil(PASSOS_LP.map(([k, r]) => [r, s.m.lp?.[k] || 0]))}</div>
+        <div><h3>Página de agendamento</h3>${htmlFunil(PASSOS_AGENDA.map(([k, r]) => [r, s.m.funil?.[k] || 0]), { pior: s.perda?.etapa })}</div>
+      </div></td></tr>` : '';
+    return `<tr id="salao-${esc(s.slug)}">
+      <th scope="row"><span class="nome-salao">${esc(s.nome)}</span><span class="slug">${esc(s.slug)}</span></th>
+      <td><span class="selo ${s.sit.cls}">${esc(s.sit.txt)}</span></td>
+      <td><div class="mini"><strong>${fmt(s.total)}</strong><div class="sparks" aria-hidden="true">${sparks}</div></div></td>
+      <td class="dir">${canc}</td>
+      <td class="${s.parado ? 'atrasado' : ''}" style="font-weight:600">${esc(quando(s.m.ultimoAgendamento))}</td>
+      <td style="font-size:13px">${esc(perda)}</td>
+      <td class="dir"><button type="button" class="ver" data-salao="${esc(s.slug)}" aria-expanded="${aberto}">${aberto ? 'Fechar ↑' : 'Ver salão →'}</button></td>
+    </tr>${detalhe}`;
+  }).join('');
+  $('#saloes-tabela').innerHTML = `<table id="tab-saloes">
+    <thead><tr><th scope="col">Salão</th><th scope="col">Situação</th><th scope="col">Agendamentos (${rotPeriodo})</th>
+      <th scope="col" class="dir">Cancelados</th><th scope="col">Último agendamento</th><th scope="col">Maior perda no funil</th>
+      <th scope="col"><span class="so-leitor">Ações</span></th></tr></thead>
+    <tbody>${linhas}</tbody></table>`;
+}
+
+const STATUS_PEDIDO = {
+  recebido: ['Recebido', 's-azul'],
+  provisionando: ['Criando…', 's-azul'],
+  aguardando: ['Aguardando (limite do dia)', 's-amarelo'],
+  pronto: ['Pronto', 's-verde'],
+  erro: ['Erro', 's-vermelho'],
+};
+function renderPedidos(pedidos) {
+  const ultimas24 = pedidos.filter((p) => Date.now() - Date.parse(p.criado_em) < DIA_MS).length;
+  $('#pedidos-24h').textContent = `Nas últimas 24 horas: ${ultimas24}`;
+  if (!pedidos.length) { $('#pedidos-lista').innerHTML = '<p class="vazio">Nenhum pedido ainda.</p>'; return; }
+  $('#pedidos-lista').innerHTML = `<ul class="pedidos">${pedidos.slice(0, 10).map((p) => {
+    const [txt, cls] = STATUS_PEDIDO[p.status] || [p.status, 's-cinza'];
+    let acao = '';
+    if (p.status === 'pronto' && /^https:\/\//.test(p.url || '')) acao = `<a class="acao" href="${esc(p.url)}" target="_blank" rel="noopener">Abrir página</a>`;
+    if (p.status === 'erro') acao = `<button type="button" class="acao" data-reprocessar="${esc(p.protocolo)}">Tentar de novo</button>`;
+    if (p.status === 'aguardando') acao = `<button type="button" class="acao" data-reprocessar="${esc(p.protocolo)}">Liberar</button>`;
+    return `<li>
+      <code>${esc(p.protocolo)}</code>
+      <strong>${esc(p.negocio || p.slug || 'Sem nome')}</strong>
+      <span class="selo ${cls}"${p.erro ? ` title="${esc(p.erro)}"` : ''}>${esc(txt)}</span>
+      <span class="quando">${esc(quando(p.criado_em))}</span>
+      ${acao}
+    </li>`;
+  }).join('')}</ul>`;
+}
+
+function renderizar() {
+  const d = estado.dados;
+  if (!d) return;
+  const saloes = montarSaloes(d);
+  const site = montarSite(d.atual.site);
+  renderKpis(d, saloes, site);
+  renderAlertas(saloes, site, d.pedidos);
+  renderGrafico(d);
+  renderSite(site);
+  renderSaloes(saloes);
+  renderPedidos(d.pedidos);
+}
+
+// ── Eventos ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.btn-p').forEach((b) => b.addEventListener('click', () => {
+  aplicarPreset(+b.dataset.dias);
+  gravarLocal('metricas.preset', estado.preset);
+  carregar();
+}));
+$('#comparar').addEventListener('change', (e) => {
+  estado.comparar = e.target.checked;
+  gravarLocal('metricas.comparar', estado.comparar);
+  sincronizarBarra();
+  renderizar();
+});
+['dt-inicio', 'dt-fim'].forEach((id) => $('#' + id).addEventListener('change', (e) => {
+  const v = e.target.value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+  if (id === 'dt-inicio') estado.inicio = v; else estado.fim = v;
+  if (estado.inicio > estado.fim) [estado.inicio, estado.fim] = [estado.fim, estado.inicio];
+  if (nDias(estado.inicio, estado.fim) > 366) estado.inicio = somaDias(estado.fim, -365);
+  estado.preset = null;
+  carregar();
+}));
+
+function abrirSalao(slug, rolar) {
+  if (estado.abertos.has(slug) && !rolar) estado.abertos.delete(slug); else estado.abertos.add(slug);
+  renderSaloes(montarSaloes(estado.dados));
+  if (rolar) document.getElementById('salao-' + slug)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+document.addEventListener('click', async (e) => {
+  const ver = e.target.closest('[data-salao]');
+  if (ver) { abrirSalao(ver.dataset.salao, false); return; }
+  const ir = e.target.closest('[data-abrir-salao]');
+  if (ir) { abrirSalao(ir.dataset.abrirSalao, true); return; }
+  const rep = e.target.closest('[data-reprocessar]');
+  if (rep) {
+    rep.disabled = true;
+    rep.textContent = 'Enviando…';
+    try {
+      await api(`/api/pedidos/${encodeURIComponent(rep.dataset.reprocessar)}/reprocessar`, { method: 'POST' });
+      setTimeout(carregar, 1500);
+    } catch (err) {
+      if (err instanceof SemLogin) { mostrarLogin(); return; }
+      rep.disabled = false;
+      rep.textContent = 'Tentar de novo';
+      rep.insertAdjacentHTML('afterend', `<p class="erro-acao">${esc(err.message)}</p>`);
+    }
+  }
+});
+
+// Destaca no menu a seção visível
+const secoes = [['topo', 'Visão geral'], ['site', 'Site e cadastro'], ['saloes', 'Salões'], ['pedidos', 'Pedidos']];
+window.addEventListener('scroll', () => {
+  let atual = 'topo';
+  for (const [id] of secoes) { const el = document.getElementById(id); if (el && el.getBoundingClientRect().top < 140) atual = id; }
+  document.querySelectorAll('nav a').forEach((a) => a.classList.toggle('atual', a.getAttribute('href') === '#' + atual));
+}, { passive: true });
+
+// ── Login ────────────────────────────────────────────────────────────────────
 function mostrarLogin() {
-  document.getElementById('login-overlay').style.display = 'flex';
+  $('#login').style.display = 'flex';
+  $('#status').textContent = 'Entre com a senha para ver as métricas.';
+  setTimeout(() => $('#senha').focus(), 0);
 }
 
-async function verificarSessao() {
-  const r = await fetch('/api/sessao');
-  const j = await r.json();
-  if (j.logado) {
-    document.getElementById('login-overlay').style.display = 'none';
-    carregar();
-  } else {
-    mostrarLogin();
-  }
-}
-
-document.getElementById('btn-login').addEventListener('click', async () => {
-  const senha = document.getElementById('senha-input').value;
+$('#form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
   const r = await fetch('/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ senha }),
+    body: JSON.stringify({ senha: $('#senha').value }),
   });
   if (r.ok) {
-    document.getElementById('login-overlay').style.display = 'none';
+    $('#login').style.display = 'none';
+    $('#senha').value = '';
+    $('#login-erro').textContent = '';
     carregar();
   } else {
-    document.getElementById('login-erro').textContent = 'Senha incorreta.';
+    $('#login-erro').textContent = r.status === 429 ? 'Muitas tentativas. Espere um pouco.' : 'Senha incorreta.';
   }
 });
-document.getElementById('senha-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('btn-login').click();
-});
 
-verificarSessao();
+async function iniciar() {
+  aplicarPreset([1, 7, 30, 90].includes(estado.preset) ? estado.preset : 7);
+  sincronizarBarra();
+  try {
+    const j = await (await fetch('/api/sessao')).json();
+    if (j.logado) carregar(); else mostrarLogin();
+  } catch {
+    $('#status').textContent = 'Não consegui falar com o painel.';
+  }
+}
+iniciar();
 </script>
 </body>
 </html>

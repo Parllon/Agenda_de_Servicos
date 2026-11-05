@@ -166,6 +166,8 @@ function getMetricas(slugs, inicio, fim) {
 
     let agendamentosConfirmados = 0;
     let agendamentosCancelados = 0;
+    const porDia = {}; // 'YYYY-MM-DD' (dia de São Paulo) -> agendamentos criados
+    let ultimoAgendamento = null; // ISO UTC do mais recente (qualquer data, não só o período)
 
     const cdb = getClienteDb(slug);
     if (cdb) {
@@ -197,6 +199,21 @@ function getMetricas(slugs, inicio, fim) {
       } catch (e) {
         // banco antigo sem criado_em — ignora
       }
+
+      // Série diária (gráfico "Agendamentos por dia") e último agendamento (alerta
+      // de salão parado). criado_em é UTC; o dia é convertido para São Paulo.
+      try {
+        const linhasDia = cdb.prepare(
+          `SELECT date(criado_em, '-${OFFSET_SP_H} hours') AS dia, COUNT(*) AS total FROM agendamentos
+           WHERE criado_em BETWEEN ? AND ?
+           GROUP BY dia`
+        ).all(dtInicio, dtFim);
+        for (const row of linhasDia) if (row.dia) porDia[row.dia] = row.total;
+        const u = cdb.prepare('SELECT MAX(criado_em) AS ultimo FROM agendamentos').get();
+        if (u && u.ultimo) ultimoAgendamento = `${u.ultimo.replace(' ', 'T')}Z`;
+      } catch (e) {
+        // banco antigo sem criado_em — ignora
+      }
     }
 
     resultado[slug] = {
@@ -205,6 +222,8 @@ function getMetricas(slugs, inicio, fim) {
       funil,
       agendamentosConfirmados,
       agendamentosCancelados,
+      porDia,
+      ultimoAgendamento,
     };
   }
 
