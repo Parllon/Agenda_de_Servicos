@@ -15,6 +15,8 @@
 //   {data}         -> data (ex.: 04/06/2026)
 //   {hora}         -> horário (ex.: 14:00)
 //   {link}         -> link de reagendamento (LANDING_URL)
+// Só nas boas-vindas ao DONO (resposta ao "oi" do cadastro):
+//   {negocio} {link_pagina} {link_agenda} (https://.../assinar/<token> → assinatura no iPhone) {email}
 //
 // FORMATO no dados.json (tudo opcional):
 //   "mensagens": {
@@ -26,6 +28,24 @@ const fs = require('fs');
 
 // ---------- Padrão de fábrica ----------
 const PADRAO = {
+  // Boas-vindas ao dono (cadastro com e-mail Gmail): o passo crítico é ACEITAR a
+  // agenda no e-mail — sem isso os agendamentos não aparecem para ele.
+  boas_vindas_google: [
+    'Avisos ativados! ✅ A partir de agora você recebe aqui cada novo agendamento de *{negocio}*.\n\n' +
+    '🔗 Sua página: {link_pagina}\n\n' +
+    '⚠️ *IMPORTANTE:* abra o Gmail ({email}), procure o e-mail do *Google Agenda* e toque em *"Adicionar esta agenda"*. ' +
+    'Sem isso os agendamentos não aparecem no seu celular.\n\n' +
+    'Prefere o Calendário do iPhone? Toque aqui:\n{link_agenda}',
+  ],
+  // Boas-vindas ao dono (cadastro com e-mail iCloud): agenda por assinatura.
+  boas_vindas_iphone: [
+    'Avisos ativados! ✅ A partir de agora você recebe aqui cada novo agendamento de *{negocio}*.\n\n' +
+    '🔗 Sua página: {link_pagina}\n\n' +
+    '📅 *Para ver os agendamentos no Calendário do iPhone:*\n' +
+    '1. Toque no link abaixo\n2. Toque em *Assinar*\n3. Toque em *Adicionar*\n{link_agenda}\n\n' +
+    'Pode ignorar o e-mail do Google Agenda que chegou em {email}. Perdeu este link? É só mandar *agenda* aqui.',
+  ],
+
   // Enviada no momento do agendamento
   confirmacao: [
     'Oi, {nome}! Horário confirmado. ✅\n\n{servico} com {profissional}\n📅 {data} às {hora}\n\n2️⃣ Reagendar · 3️⃣ Cancelar',

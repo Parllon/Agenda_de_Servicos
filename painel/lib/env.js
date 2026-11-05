@@ -22,7 +22,12 @@ function parseEnv(texto) {
 
 // Recebe o texto original e um objeto { CHAVE: novoValor } e devolve o texto novo,
 // trocando só o valor dessas chaves e mantendo o resto (comentários inclusive) intacto.
-function updateEnv(texto, updates) {
+// SEGURANÇA (segunda proteção): \r e \n num valor criariam uma linha nova no .env
+// (ex.: "Studio\nCLIENTE=bya"). Viram espaço antes de gravar, venha de onde vier.
+const umaLinha = (v) => String(v ?? '').replace(/[\r\n]+/g, ' ');
+
+function updateEnv(texto, updatesBrutos) {
+  const updates = Object.fromEntries(Object.entries(updatesBrutos).map(([k, v]) => [k, umaLinha(v)]));
   const chaves = Object.keys(updates);
   const linhas = texto.split(/\r?\n/);
   const usadas = new Set();

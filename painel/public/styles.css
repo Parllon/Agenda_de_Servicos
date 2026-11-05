@@ -71,3 +71,9 @@ button.remover { color: var(--erro); }
   background: #0a0c10; border: 1px solid var(--linha); border-radius: 8px;
   padding: 12px; max-height: 50vh; overflow: auto; white-space: pre-wrap; font-size: 12px;
 }
+
+/* Links da agenda por assinatura (iPhone) */
+.linha-link { display: grid; grid-template-columns: minmax(7rem, auto) 1fr auto; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+.linha-link input { width: 100%; font-family: ui-monospace, monospace; font-size: .8rem; }
+@media (max-width: 600px) { .linha-link { grid-template-columns: 1fr auto; } .linha-link span { grid-column: 1 / -1; } }
+.dica { color: #666; font-size: .85rem; margin: 0 0 .75rem; }

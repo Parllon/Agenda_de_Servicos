@@ -13,6 +13,7 @@ const { montarMensagem } = require('./mensagens');
 const { notificar, montarAviso, htmlParaWhatsapp } = require('./telegram');
 const { TEMAS, PERFIS, cssVars, gerarTemaCustomizado } = require('./temas');
 const { gerarSlotsDoDia: _gerarSlots } = require('./utils');
+const agendaIcs = require('./agenda-ics');
 
 const app = express();
 
@@ -554,6 +555,126 @@ app.post('/agendamento', limiteAgendamento, async (req, res) => {
   }
 });
 
+// ---------- GET /agenda/:token(.ics) — agenda por assinatura (iPhone/iCloud) ----------
+// Ver app/agenda-ics.js. Sem AGENDA_ICS_SEGREDO no .env a função fica desligada (404).
+const AGENDA_SEGREDO = process.env.AGENDA_ICS_SEGREDO || '';
+const limiteAgenda = rateLimit({
+  windowMs: 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+function hostPublico() {
+  try { return new URL(LANDING_URL).host; } catch { return 'agendamentos.app.br'; }
+}
+
+// Link https para mandar por WhatsApp (o WhatsApp NÃO deixa webcal:// clicável):
+// abre /assinar/<token>, que manda para o webcal://. '' se a função estiver desligada.
+function linkAgenda(alvo = 'todos') {
+  if (!AGENDA_SEGREDO) return '';
+  return `https://${hostPublico()}/assinar/${agendaIcs.tokenDe(AGENDA_SEGREDO, alvo)}`;
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Página "Assinar a agenda": botão para o Calendário do iPhone (webcal://) e para
+// o Google Agenda (Android). No iPhone já tenta abrir o webcal sozinha.
+app.get('/assinar/:token', limiteAgenda, (req, res) => {
+  const profs = db.prepare('SELECT id, nome FROM profissionais').all();
+  const quem = agendaIcs.resolverToken(AGENDA_SEGREDO, req.params.token, profs.map((p) => p.id));
+  if (!quem) return res.status(404).type('text').send('não encontrado');
+  const webcal = `webcal://${hostPublico()}/agenda/${req.params.token}.ics`;
+  const google = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`;
+  const nome = quem.alvo === 'todos' ? NEGOCIO.nome : `${NEGOCIO.nome} — ${(profs.find((p) => p.id === quem.id) || {}).nome || ''}`;
+  res.set('Cache-Control', 'no-store');
+  res.set('X-Robots-Tag', 'noindex');
+  res.type('html').send(`<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Agenda — ${escHtml(nome)}</title>
+<style>
+  :root{color-scheme:light dark}
+  body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f6f6f7;color:#18181b;display:flex;justify-content:center;padding:24px 16px}
+  @media (prefers-color-scheme:dark){body{background:#111113;color:#f4f4f5}.c{background:#1c1c1f!important;border-color:#2e2e33!important}.s{color:#a1a1aa!important}}
+  .c{max-width:420px;width:100%;background:#fff;border:1px solid #e4e4e7;border-radius:16px;padding:24px}
+  h1{font-size:1.25rem;margin:0 0 4px}.s{color:#52525b;margin:0 0 20px;line-height:1.5}
+  a.b{display:block;text-align:center;text-decoration:none;font-weight:700;padding:14px;border-radius:12px;margin-bottom:12px}
+  .p{background:#18181b;color:#fff}.g{background:transparent;color:inherit;border:1.5px solid #a1a1aa}
+  ol{padding-left:20px;line-height:1.7;margin:16px 0 0}
+</style></head><body><main class="c">
+<h1>📅 Agenda de ${escHtml(nome)}</h1>
+<p class="s">Veja os agendamentos direto no calendário do seu celular. Eles atualizam sozinhos.</p>
+<a class="b p" href="${escHtml(webcal)}">Assinar no Calendário do iPhone</a>
+<a class="b g" href="${escHtml(google)}">Usar no Google Agenda (Android)</a>
+<ol class="s"><li>Toque em <b>Assinar no Calendário do iPhone</b></li><li>Toque em <b>Assinar</b></li><li>Toque em <b>Adicionar</b></li></ol>
+</main>
+<script>if(/iPhone|iPad|Macintosh/.test(navigator.userAgent)&&!sessionStorage.getItem('foi')){sessionStorage.setItem('foi','1');location.href=${JSON.stringify(webcal)};}</script>
+</body></html>`);
+});
+
+app.get(['/agenda/:token.ics', '/agenda/:token'], limiteAgenda, async (req, res) => {
+  const profs = db.prepare('SELECT id, nome, calendar_id FROM profissionais ORDER BY id').all();
+  const quem = agendaIcs.resolverToken(AGENDA_SEGREDO, req.params.token, profs.map((p) => p.id));
+  if (!quem) return res.status(404).type('text').send('não encontrado');
+
+  const alvos = quem.alvo === 'todos' ? profs : profs.filter((p) => p.id === quem.id);
+  const varios = alvos.length > 1;
+  const hoje = new Date();
+  const desde = new Date(hoje.getTime() - 30 * 86400000);
+  const ate = new Date(hoje.getTime() + Math.max(JANELA_DIAS, 90) * 86400000);
+
+  try {
+    const calendar = getCalendarClient();
+    const eventos = [];
+    for (const p of alvos) {
+      if (!p.calendar_id) continue;
+      const lista = await agendaIcs.eventosDaAgenda(calendar, p.calendar_id, { desde, ate });
+      eventos.push(...lista.map((ev) => agendaIcs.deGoogle(ev, varios ? `[${p.nome}] ` : '')));
+    }
+    const nome = quem.alvo === 'todos' ? NEGOCIO.nome : `${NEGOCIO.nome} — ${alvos[0].nome}`;
+    res.set('Cache-Control', 'private, max-age=300');
+    res.type('text/calendar; charset=utf-8').send(agendaIcs.montarIcs({ nome, eventos, dominio: hostPublico() }));
+  } catch (e) {
+    console.error('[agenda-ics] falha ao ler o Google:', e.message);
+    res.status(503).type('text').send('agenda indisponível no momento');
+  }
+});
+
+// ---------- Boas-vindas ao dono: resposta ao "oi" do cadastro ----------
+// A tela final do cadastro pede para o dono mandar "Oi! Quero ativar os avisos do
+// meu salão (SLT-XXXXXX)" ao número central. RESPONDER a uma mensagem recebida não
+// esbarra no bloqueio 463 da Meta — por isso o link da página e da agenda vão aqui.
+// Reconhece pelo protocolo no texto (funciona mesmo se o remetente vier como @lid)
+// ou pelo número do dono + palavra "ativar"/"agenda" (reenviar o link depois).
+const CADASTRO_PROTOCOLO = (process.env.CADASTRO_PROTOCOLO || '').trim().toUpperCase();
+const EMAIL_DONO = String(negocioJson.email_dono || '').trim().toLowerCase();
+
+// WhatsApp às vezes entrega número BR sem o 9 do celular: compara nas duas formas.
+function mesmoNumero(a, b) {
+  const n = (x) => {
+    const d = String(x || '').replace(/\D/g, '');
+    return d.length === 13 && d.startsWith('55') && d[4] === '9' ? d.slice(0, 4) + d.slice(5) : d;
+  };
+  return Boolean(a && b) && n(a) === n(b);
+}
+
+function ehMensagemDoDono(phone, texto) {
+  if (CADASTRO_PROTOCOLO && texto.toUpperCase().includes(CADASTRO_PROTOCOLO)) return true;
+  const doDono = [negocioJson.whatsapp_aviso, negocioJson.whatsapp_contato, negocioJson.telefone]
+    .some((n) => mesmoNumero(phone, n));
+  return doDono && /\b(ativar|agenda)\b/i.test(texto);
+}
+
+function mensagemBoasVindas() {
+  const icloud = /@(icloud|me|mac)\.com$/.test(EMAIL_DONO);
+  return montarMensagem(icloud ? 'boas_vindas_iphone' : 'boas_vindas_google', {
+    negocio: NEGOCIO.nome,
+    link_pagina: LANDING_URL,
+    link_agenda: linkAgenda('todos') || '(peça o link da agenda ao suporte)',
+    email: EMAIL_DONO,
+  });
+}
+
 // ---------- POST /webhook-whatsapp (Evolution API) ----------
 // Lê o evento messages.upsert e processa as respostas:
 //   1 = Confirmar | 2 = Reagendar | 3 = Cancelar
@@ -618,6 +739,11 @@ app.post('/webhook-whatsapp', (req, res, next) => {
     // Texto da mensagem
     const texto = (payload.body || '').trim();
     console.log(`[webhook] de ${phone} | texto: "${texto}"`);
+    if (ehMensagemDoDono(phone, texto)) {
+      console.log('[webhook] mensagem do dono → enviando boas-vindas com os links');
+      await enviarWhatsapp(phone, mensagemBoasVindas(), { semPrefixo: true });
+      return;
+    }
     if (!['1', '2', '3'].includes(texto)) {
       console.log('[webhook] ignorado (texto não é 1, 2 ou 3)');
       return;

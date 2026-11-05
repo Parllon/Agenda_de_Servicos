@@ -56,6 +56,27 @@ async function compartilhar(calendar, calendarId, email) {
   }));
 }
 
+// E-mail da administração do SlotMe (AGENDAS_ADMIN_EMAIL no .env do painel):
+// recebe acesso de EDIÇÃO a toda agenda criada pela SA, para dar suporte
+// (bloquear horário, corrigir evento). Falha aqui NÃO derruba a criação do
+// cliente — só fica no log (dá para refazer com compartilhar-admin.js).
+function emailAdmin() {
+  return (process.env.AGENDAS_ADMIN_EMAIL || '').trim().toLowerCase();
+}
+
+async function compartilharComAdmin(calendar, calendarId, jaCompartilhados = []) {
+  const admin = emailAdmin();
+  if (!admin) return false;
+  if (jaCompartilhados.some((e) => (e || '').trim().toLowerCase() === admin)) return true;
+  try {
+    await compartilhar(calendar, calendarId, admin);
+    return true;
+  } catch (e) {
+    console.warn(`[agendas] não consegui compartilhar ${calendarId} com ${admin}:`, e.message);
+    return false;
+  }
+}
+
 // Idempotente: só cria o que falta (calendar_id vazio). Para no primeiro erro
 // e informa exatamente o que foi criado, o que já existia e o que não deu.
 // Muta `dados` em memória (preenche calendar_id); quem chama decide se/quando
@@ -80,6 +101,7 @@ async function criarAgendasDoCliente(dados) {
       const id = await criarAgenda(calendar, `${dados.negocio.nome} — ${prof.nome}`);
       await compartilhar(calendar, id, emailDono);
       if (prof.email) await compartilhar(calendar, id, prof.email);
+      await compartilharComAdmin(calendar, id, [emailDono, prof.email]);
       prof.calendar_id = id;
       resultado.criadas.push({ profissional: prof.nome, calendar_id: id });
     } catch (e) {
@@ -91,4 +113,4 @@ async function criarAgendasDoCliente(dados) {
   return resultado;
 }
 
-module.exports = { getCalendarClient, criarAgendasDoCliente };
+module.exports = { getCalendarClient, criarAgendasDoCliente, compartilhar, emailAdmin };

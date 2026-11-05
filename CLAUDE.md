@@ -92,6 +92,34 @@ disso aparece. Tokens (WhatsApp/Telegram) vivem só nos `.env`.
 6. Cloudflare: criar DNS + adicionar rota no ingress (acima do `http_status:404`).
    Detalhe na seção 6 da `DOCUMENTACAO-SLOTME.md`.
 
+**Automático (cadastro do site SlotMe):** `slotme.agendamentos.app.br/cadastro` faz
+`POST cadastro.agendamentos.app.br/api/pedidos` (rota pública do painel). O painel valida
+(`painel/lib/pedido.js`), registra em `painel/pedidos/<protocolo>.json` (fora do Git) e
+cria tudo sozinho numa fila serial (`painel/lib/provisionar.js`): config → agendas Google →
+fotos → docker → DNS. Teto `PEDIDOS_MAX_DIA` (padrão 5/24h); acima disso o pedido fica
+`aguardando` e é liberado em `POST /api/pedidos/<protocolo>/reprocessar` (com login).
+O `.env` do painel precisa de `WAHA_API_KEY` (o `criar.js` copia para o cliente; sem ela
+o cliente nasce com a chave placeholder e nenhum WhatsApp sai). `AGENDAS_ADMIN_EMAIL`
+(hoje `slotmeagendamentos@gmail.com`) recebe acesso de edição a toda agenda criada pela SA;
+para agendas já existentes: `docker exec painel-slotme node compartilhar-admin.js` (pula
+agendas pessoais de clientes antigos).
+
+**E-mail do dono: só Gmail ou iCloud** (`@gmail.com`, `@icloud.com`, `@me.com`, `@mac.com`) —
+validado no site e no painel. iCloud não abre o convite do Google, então usa a **agenda por
+assinatura**: `AGENDA_ICS_SEGREDO` no `.env` do cliente liga `GET /agenda/<token>.ics` (lê o
+Google pela SA) e a página `/assinar/<token>` (botão webcal:// do iPhone). Links por dono e por
+profissional: tela de edição do cliente no painel. O motor responde o "oi" do dono (protocolo
+`CADASTRO_PROTOCOLO` no texto) com o link da página + agenda. Clientes antigos sem segredo:
+`docker exec painel-slotme node gerar-segredos-agenda.js` + `up -d --force-recreate` neles. Código do site:
+`C:\Users\parll\Projetos_Pages\Site_agendamentos` (contrato em `src/lib/cadastro/pedido.js`).
+
+**Métricas** (`painel/lib/metricas.js`, coletor público `painel/lib/coletor.js`): `POST /api/evento`
+aceita JSON ou `text/plain` com JSON (≤2 KB), token `METRICS_TOKEN`, tipos em lista fechada
+(`TIPOS_EVENTO`) e slugs = pastas de cliente + `METRICS_SLUGS_EXTRAS` (padrão `slotme_lp`).
+Contagens são por pessoa (`COUNT(DISTINCT sessao_id)`); filtro de datas em horário de São Paulo
+(`criado_em` é UTC). Testes do painel: `npm test` (Jest) — rodar num container `node:22` no Zima
+(o `better-sqlite3` 9.x não compila no Node 24 do Windows).
+
 ## Features configuráveis por cliente
 - **Tema** (`.env` `TEMA`): cores em `app/temas.js` (canais RGB "R G B"). 8 presets:
   `tema_1` (vinho/marfim), `tema_2` (preto/dourado), `tema_3` (verde/branco),

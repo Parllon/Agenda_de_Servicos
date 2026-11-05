@@ -129,6 +129,16 @@
     }
     #login-box button:hover { background: #2d2d4e; }
     #login-erro { color: #dc2626; font-size: .8rem; margin-top: 10px; text-align: center; }
+
+    /* Site do SlotMe (provisório — o redesenho vem depois) */
+    #site { margin-bottom: 28px; }
+    #site h2.secao { font-size: 1.05rem; margin: 0 0 12px; }
+    .tabela-wrap { overflow-x: auto; margin-bottom: 16px; }
+    .tabela { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .tabela th, .tabela td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; text-align: right; white-space: nowrap; }
+    .tabela th:first-child, .tabela td:first-child { text-align: left; }
+    .tabela thead th { font-weight: 600; color: #6b7280; }
+    .tabela .pct { color: #9ca3af; font-size: .75rem; margin-left: 4px; }
   </style>
 </head>
 <body>
@@ -162,14 +172,17 @@
 
 <main>
   <div id="status">Carregando…</div>
+  <section id="site"></section>
   <div class="grid" id="grid"></div>
 </main>
 
 <script>
 // ── Utilitários ──────────────────────────────────────────────────────────────
 const fmt = (n) => (n || 0).toLocaleString('pt-BR');
-const hoje  = () => new Date().toISOString().slice(0, 10);
-const atras = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+// Datas em horário de São Paulo (UTC-3): às 22h ainda é "hoje", não amanhã.
+const SP_MS = 3 * 3600000;
+const hoje  = () => new Date(Date.now() - SP_MS).toISOString().slice(0, 10);
+const atras = (n) => new Date(Date.now() - SP_MS - n * 86400000).toISOString().slice(0, 10);
 
 function classePct(p) {
   if (p === null) return 'neutro';
@@ -313,20 +326,74 @@ function renderCard(slug, d) {
     </div>`;
 }
 
+// ── Site do SlotMe (slugs de METRICS_SLUGS_EXTRAS) ───────────────────────────
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ROTULOS = {
+  lp_clicou_agendar: 'Clicou em Agendar',
+  lp_clicou_whatsapp: 'Clicou no WhatsApp',
+  lp_clicou_cliente: 'Clicou em um cliente',
+  lp_enviou_formulario: 'Enviou formulário',
+  cad_vista: 'Abriu o cadastro',
+  cad_etapa_voce: 'Etapa: Você',
+  cad_etapa_negocio: 'Etapa: Negócio',
+  cad_etapa_servicos: 'Etapa: Serviços',
+  cad_etapa_equipe: 'Etapa: Equipe',
+  cad_etapa_horarios: 'Etapa: Horários',
+  cad_etapa_visual: 'Etapa: Visual',
+  cad_etapa_revisao: 'Etapa: Revisão',
+  cad_enviado: 'Cadastro enviado ✓',
+};
+const pct = (v, base) => (base ? `<span class="pct">${Math.round((v / base) * 100)}%</span>` : '');
+
+function renderSite(site) {
+  const slugs = Object.keys(site || {});
+  if (!slugs.length) return '';
+  return `<h2 class="secao">Site do SlotMe</h2>` + slugs.map((slug) => {
+    const s = site[slug];
+    const origens = s.por_origem || [];
+    const topo = s.funil[0]?.pessoas || 0;
+    const linhasCliques = Object.entries(s.cliques)
+      .map(([t, v]) => `<tr><td>${ROTULOS[t] || esc(t)}</td><td>${fmt(v)}${pct(v, s.visitas)}</td></tr>`).join('');
+    const linhasFunil = s.funil.map((e, i) => `<tr><td>${ROTULOS[e.tipo] || esc(e.tipo)}</td>`
+      + `<td>${fmt(e.pessoas)}${i ? pct(e.pessoas, topo) : ''}</td>`
+      + origens.map((o) => `<td>${fmt(o.funil[i].pessoas)}</td>`).join('') + `</tr>`).join('');
+    return `
+      <div class="card">
+        <div class="card-head"><h2>Pessoas no período</h2><span class="slug">${esc(slug)}</span></div>
+        <div class="card-body">
+          <div class="tabela-wrap"><table class="tabela">
+            <thead><tr><th>Landing page</th><th>Pessoas</th></tr></thead>
+            <tbody><tr><td>Visitas</td><td>${fmt(s.visitas)}</td></tr>${linhasCliques}</tbody>
+          </table></div>
+          <div class="tabela-wrap"><table class="tabela">
+            <thead><tr><th>Funil do cadastro</th><th>Total</th>${origens.map((o) => `<th>${esc(o.origem)}</th>`).join('')}</tr></thead>
+            <tbody>${linhasFunil}
+              <tr><td>Erro ao enviar ✗</td><td>${fmt(s.erros_envio)}</td>${origens.map((o) => `<td>${fmt(o.erros_envio)}</td>`).join('')}</tr>
+              <tr><td>Visitas (por origem)</td><td>${fmt(s.visitas)}</td>${origens.map((o) => `<td>${fmt(o.visitas)}</td>`).join('')}</tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 // ── Buscar e renderizar ───────────────────────────────────────────────────────
 async function carregar() {
   const status = document.getElementById('status');
   const grid   = document.getElementById('grid');
+  const secSite = document.getElementById('site');
   status.textContent = 'Carregando…';
   grid.innerHTML = '';
+  secSite.innerHTML = '';
   try {
     const r = await fetch(`/api/metricas?inicio=${inicio}&fim=${fim}`);
     if (r.status === 401) { mostrarLogin(); return; }
     if (!r.ok) throw new Error('Erro ' + r.status);
-    const dados = await r.json();
+    const { clientes: dados = {}, site = {} } = await r.json();
+    secSite.innerHTML = renderSite(site);
     const slugs = Object.keys(dados).sort();
     if (!slugs.length) { status.textContent = 'Nenhum cliente encontrado.'; return; }
-    status.textContent = `${slugs.length} cliente(s) · ${inicio} → ${fim}`;
+    status.textContent = `${slugs.length} cliente(s) · ${inicio} → ${fim} (horário de Brasília)`;
     grid.innerHTML = slugs.map((s) => renderCard(s, dados[s])).join('');
   } catch (e) {
     status.textContent = 'Erro: ' + e.message;

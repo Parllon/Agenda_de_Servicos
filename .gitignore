@@ -66,3 +66,7 @@ Imagens_contexto/
 # Sessão do WAHA (perfil Chromium + tokens de login do WhatsApp — segredo)
 # ==========================================
 waha/sessions/
+# ==========================================
+# Pedidos do cadastro do site (nome, e-mail, WhatsApp, fotos) — só no servidor
+# ==========================================
+painel/pedidos/

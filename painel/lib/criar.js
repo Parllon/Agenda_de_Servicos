@@ -6,8 +6,26 @@ const fs = require('fs');
 const path = require('path');
 const { updateEnv } = require('./env');
 const C = require('./clientes');
+const { novoSegredo } = require('./agenda-links');
 
 const TEMPLATE = path.join(C.PROJETO_RAIZ, 'clientes', '_template');
+
+// Conexão com o WAHA (WhatsApp central). O molde versionado só tem o placeholder
+// CHAVE_DO_WAHA — sem isto, todo cliente criado pelo painel nascia com chave
+// inválida e TODO envio de WhatsApp (confirmação, lembretes, aviso à dona) dava
+// 401. A chave real vive só no .env do painel (WAHA_API_KEY), nunca no Git.
+function envWaha() {
+  const chave = (process.env.WAHA_API_KEY || '').trim();
+  if (!chave) {
+    console.warn('[criar] AVISO: WAHA_API_KEY vazio no .env do painel — o cliente novo não vai conseguir enviar WhatsApp.');
+    return {};
+  }
+  return {
+    WAHA_URL: process.env.WAHA_URL || 'http://waha:3000',
+    WAHA_API_KEY: chave,
+    WAHA_SESSION: process.env.WAHA_SESSION || 'agendamento',
+  };
+}
 
 // Recebe { slug, porta, tema, perfil, dados } e cria clientes/<slug>/.
 function criar({ slug, porta, tema, perfil, dados }) {
@@ -43,6 +61,9 @@ function criar({ slug, porta, tema, perfil, dados }) {
     TEMA: tema,
     PERFIL_PROFISSIONAL: perfil,
     WHATSAPP_INSTANCE: slug,
+    ...envWaha(),
+    // Segredo dos links da agenda por assinatura (iPhone) — ver app/agenda-ics.js.
+    AGENDA_ICS_SEGREDO: novoSegredo(),
   });
 
   // --- criar a estrutura e gravar (sem cpSync) ---

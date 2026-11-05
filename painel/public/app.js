@@ -116,6 +116,35 @@ async function abrirEdicao(slug) {
   const { dados, env } = await api('GET', `/api/clientes/${slug}`);
   preencherForm(dados, env);
   irPara('view-form');
+  mostrarLinksAgenda(slug);
+}
+
+// ---------- links da agenda por assinatura (iPhone) ----------
+async function mostrarLinksAgenda(slug) {
+  const fs = $('fs-agenda-links');
+  const alvo = $('agenda-links');
+  fs.hidden = true;
+  alvo.innerHTML = '';
+  try {
+    const l = await api('GET', `/api/clientes/${slug}/agenda-links`);
+    if (!l.ativo || slugAtual !== slug) return;
+    const linhas = [{ nome: 'Dono (todos)', url: l.dono }, ...l.profissionais];
+    for (const { nome, url } of linhas) {
+      const div = document.createElement('div');
+      div.className = 'linha-link';
+      div.innerHTML = `<span>${esc(nome)}</span><input readonly value="${esc(url)}" /><button type="button" class="secundario">Copiar</button>`;
+      const [, input, botao] = div.children;
+      botao.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(url); } catch { input.select(); document.execCommand('copy'); }
+        botao.textContent = 'Copiado ✓';
+        setTimeout(() => { botao.textContent = 'Copiar'; }, 1500);
+      });
+      alvo.appendChild(div);
+    }
+    fs.hidden = false;
+  } catch (e) {
+    console.warn('[agenda-links]', e.message);
+  }
 }
 
 // ---------- abrir criação ----------
@@ -124,6 +153,7 @@ function abrirCriacao() {
   slugAtual = null;
   preencherSelects();
   $('fs-criar').hidden = false;
+  $('fs-agenda-links').hidden = true;
   $('form-titulo').textContent = 'Novo cliente';
   // valores em branco / padrões razoáveis
   preencherForm({
