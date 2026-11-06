@@ -14,6 +14,7 @@ const DIR_CLIENTES = path.join(PROJETO_RAIZ, 'clientes');
 const TEMAS = ['tema_1', 'tema_2', 'tema_3', 'tema_4', 'tema_5', 'tema_6', 'tema_7', 'tema_8'];
 const PERFIS = ['profissional', 'barbeiro', 'terapeuta', 'cabeleireiro', 'designer', 'tatuador', 'especialista'];
 const HEX_COR = /^#[0-9a-f]{6}$/i;
+const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Chaves do .env que o painel deixa editar (o resto fica como está no arquivo).
 const ENV_EDITAVEIS = [
@@ -92,6 +93,14 @@ function validar({ dados, env }, slug) {
     if (!p.nome) throw new Error(`Profissional #${i + 1}: informe o nome.`);
     const servs = Array.isArray(p.servicos) ? p.servicos : [];
     if (!servs.length) throw new Error(`Profissional "${p.nome}": cadastre pelo menos 1 serviço.`);
+    // Almoço (opcional): vira um evento recorrente na agenda Google dele (lib/pausas.js).
+    if (p.pausa != null) {
+      const { inicio, fim } = p.pausa;
+      if (!HORA.test(inicio || '') || !HORA.test(fim || '')) {
+        throw new Error(`Profissional "${p.nome}": horário de almoço inválido (use HH:MM).`);
+      }
+      if (fim <= inicio) throw new Error(`Profissional "${p.nome}": o almoço precisa terminar depois de começar.`);
+    }
   });
 
   if (env) {

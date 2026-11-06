@@ -19,6 +19,7 @@ const { aplicar } = require('./lib/aplicar');
 const { deletar } = require('./lib/deletar');
 const { pausar, reativar, estaAtivo } = require('./lib/pausar');
 const { criarAgendasDoCliente } = require('./lib/agendas');
+const { sincronizarCliente } = require('./lib/pausas');
 const { registrarDNS, atualizarConfig, reloadCloudflared, urlPorPorta } = require('./lib/cloudflare');
 const P = require('./lib/pedido');
 const Pedidos = require('./lib/pedidos-store');
@@ -193,11 +194,28 @@ app.get('/api/clientes/:slug', exigirLogin, (req, res) => {
   } catch (e) { res.status(404).json({ erro: e.message }); }
 });
 
-app.put('/api/clientes/:slug', exigirLogin, (req, res) => {
+app.put('/api/clientes/:slug', exigirLogin, async (req, res) => {
+  const slug = req.params.slug;
+  let antes;
   try {
-    C.gravar(req.params.slug, req.body || {});
-    res.json({ ok: true });
-  } catch (e) { res.status(400).json({ erro: e.message }); }
+    antes = C.existe(slug) ? C.ler(slug) : null;
+    C.gravar(slug, req.body || {});
+  } catch (e) { return res.status(400).json({ erro: e.message }); }
+
+  // Almoço de cada profissional → evento na agenda Google dele (lib/pausas.js).
+  // A ficha já está salva; uma falha no Google vira aviso, não erro.
+  let almoco = null;
+  if (antes && req.body && req.body.dados) {
+    try {
+      const depois = C.ler(slug);
+      almoco = await sincronizarCliente(antes.dados, depois.dados, { antes: antes.env.FOLGAS, depois: depois.env.FOLGAS });
+      if (almoco.criados.length || almoco.avisos.length) C.gravar(slug, { dados: depois.dados }); // guarda os evento_id
+    } catch (e) {
+      console.error(`[almoco:${slug}]`, e.message);
+      almoco = { criados: [], alterados: [], removidos: [], avisos: [`Ficha salva, mas o almoço não foi para a agenda: ${e.message}`] };
+    }
+  }
+  res.json({ ok: true, almoco });
 });
 
 app.post('/api/clientes', exigirLogin, (req, res) => {

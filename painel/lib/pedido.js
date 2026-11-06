@@ -129,6 +129,22 @@ function validarPedido(p) {
     }
   }
 
+  // Almoço: igual para todos (horarios.pausa) ou um por profissional
+  // (pausa_por_profissional + profissionais[].pausa). Vira evento na agenda (lib/pausas.js).
+  const abreMin = Math.min(...abertos.map((d) => minutos(d.abre)));
+  const fechaMax = Math.max(...abertos.map((d) => minutos(d.fecha)));
+  const validarPausa = (pz, quem) => {
+    if (pz == null) return;
+    if (typeof pz !== 'object' || !HORA.test(pz.inicio || '') || !HORA.test(pz.fim || '')) falha(`Horário de almoço inválido${quem}.`);
+    if (minutos(pz.fim) <= minutos(pz.inicio)) falha(`O almoço precisa terminar depois de começar${quem}.`);
+    if (minutos(pz.inicio) < abreMin || minutos(pz.fim) > fechaMax) falha(`O almoço precisa ficar dentro do horário de funcionamento${quem}.`);
+  };
+  if (hor.pausa_por_profissional) {
+    for (const pr of profs) validarPausa(pr.pausa, ` de ${limpo(pr.nome)}`);
+  } else {
+    validarPausa(hor.pausa, '');
+  }
+
   const vis = p.visual || {};
   if (vis.tema !== 'auto' && vis.tema !== 'custom' && !C.TEMAS.includes(vis.tema)) falha('Estilo inválido.');
   if (vis.perfil && !C.PERFIS.includes(vis.perfil)) falha('Perfil inválido.');
@@ -185,11 +201,16 @@ function paraConfig(p, { slug }) {
   const avisos = [];
   if (new Set(abertos.map((d) => `${d.abre}-${d.fecha}`)).size > 1) avisos.push('Horários diferentes por dia da semana — o sistema usa um só horário.');
   if (abertos.some((d) => d.abre.endsWith(':30') || d.fecha.endsWith(':30'))) avisos.push('Horário com meia hora — o sistema arredonda para hora cheia.');
-  if (p.horarios.pausa) avisos.push(`Pausa diária ${p.horarios.pausa.inicio}–${p.horarios.pausa.fim} (todos) — bloquear na agenda Google.`);
-  if (p.horarios.pausa_por_profissional) {
-    for (const pr of p.profissionais) {
-      avisos.push(pr.pausa ? `${pr.nome}: pausa ${pr.pausa.inicio}–${pr.pausa.fim} — bloquear na agenda.` : `${pr.nome}: sem pausa.`);
-    }
+  // Almoço de cada um (recalculado aqui, sem confiar no que o site resolveu):
+  // a fase "almoco" do provisionar.js transforma em evento na agenda dele.
+  const individual = p.horarios.pausa_por_profissional === true;
+  const pausaDe = (pr) => {
+    const pz = individual ? pr.pausa : p.horarios.pausa;
+    return pz ? { inicio: pz.inicio, fim: pz.fim } : null;
+  };
+  for (const pr of p.profissionais) {
+    const pz = pausaDe(pr);
+    if (pz) avisos.push(`${limpo(pr.nome)}: almoço ${pz.inicio}–${pz.fim} bloqueado na agenda.`);
   }
   for (const pr of p.profissionais) if (pr.horario_diferente) avisos.push(`${pr.nome}: horário diferente (${pr.horario_diferente}).`);
 
@@ -234,6 +255,7 @@ function paraConfig(p, { slug }) {
       subject_email: null,
       foto_url: '',
       telegram_chat_id: '',
+      ...(pausaDe(pr) ? { pausa: pausaDe(pr) } : {}),
       servicos: pr.servicos.map((nome) => ({
         nome,
         duracao_min: Number(servicoPorNome[nome].duracao_min),

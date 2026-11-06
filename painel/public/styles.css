@@ -77,3 +77,8 @@ button.remover { color: var(--erro); }
 .linha-link input { width: 100%; font-family: ui-monospace, monospace; font-size: .8rem; }
 @media (max-width: 600px) { .linha-link { grid-template-columns: 1fr auto; } .linha-link span { grid-column: 1 / -1; } }
 .dica { color: #666; font-size: .85rem; margin: 0 0 .75rem; }
+.prof small.dica { display: block; }
+.prof small.dica[hidden] { display: none; }
+.dica.aviso { color: #92400e; }
+.form-info { color: #166534; margin: 0 0 10px; }
+.form-info:empty { display: none; }

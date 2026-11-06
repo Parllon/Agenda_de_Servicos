@@ -113,6 +113,13 @@ profissional: tela de edição do cliente no painel. O motor responde o "oi" do 
 `docker exec painel-slotme node gerar-segredos-agenda.js` + `up -d --force-recreate` neles. Código do site:
 `C:\Users\parll\Projetos_Pages\Site_agendamentos` (contrato em `src/lib/cadastro/pedido.js`).
 
+**Almoço por profissional** (`painel/lib/pausas.js`): `profissionais[i].pausa = { inicio, fim, evento_id }`
+no `dados.json` vira um evento recorrente "Almoço" (dias abertos, sem lembrete) na agenda Google
+daquele profissional. Como o motor consulta o freebusy só da agenda de quem foi escolhido, o horário
+some só para ele — o motor não sabe de almoço. Criado no cadastro automático (fase `almoco` do
+`provisionar.js`) e sincronizado ao salvar a ficha no painel (`PUT /api/clientes/:slug`: cria,
+altera, recria se o dono apagou a série, apaga se tirou o almoço ou o profissional).
+
 **Métricas** (`painel/lib/metricas.js`, coletor público `painel/lib/coletor.js`): `POST /api/evento`
 aceita JSON ou `text/plain` com JSON (≤2 KB), token `METRICS_TOKEN`, tipos em lista fechada
 (`TIPOS_EVENTO`) e slugs = pastas de cliente + `METRICS_SLUGS_EXTRAS` (padrão `slotme_lp`).

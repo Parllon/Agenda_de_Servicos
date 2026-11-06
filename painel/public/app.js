@@ -52,6 +52,7 @@ $('btn-logout').addEventListener('click', async () => {
 // ---------- lista ----------
 async function abrirLista() {
   irPara('view-lista');
+  $('status-lista').textContent = '';
   const clientes = await api('GET', '/api/clientes');
   const grid = $('lista-clientes');
   grid.innerHTML = '';
@@ -251,8 +252,29 @@ function lerProfDOM(el) {
     subject_email: el._subjectEmail ?? null,
     foto_url: el.querySelector('.p-foto').value.trim(),
     telegram_chat_id: el.querySelector('.p-telegram').value.trim(),
+    ...lerAlmocoDOM(el),
     servicos,
   };
+}
+
+// Almoço: os dois campos preenchidos = { pausa: { inicio, fim, evento_id } }.
+// O evento_id (do evento na agenda Google) não aparece na tela, mas é preservado
+// para o servidor atualizar o mesmo evento em vez de criar outro (lib/pausas.js).
+function lerAlmocoDOM(el) {
+  const inicio = el.querySelector('.p-almoco-ini').value;
+  const fim = el.querySelector('.p-almoco-fim').value;
+  if (!inicio && !fim) return {};
+  const pausa = { inicio, fim };
+  if (el._pausaEvento) pausa.evento_id = el._pausaEvento;
+  return { pausa };
+}
+
+// Agenda criada pelo SlotMe (service account) termina em @group.calendar.google.com;
+// qualquer outra coisa (ex.: gmail do dono) é agenda pessoal.
+function avisoAgendaPessoal(el) {
+  const cal = el.querySelector('.p-calendar').value.trim();
+  const temAlmoco = el.querySelector('.p-almoco-ini').value || el.querySelector('.p-almoco-fim').value;
+  el.querySelector('.p-almoco-pessoal').hidden = !(temAlmoco && cal && !cal.endsWith('@group.calendar.google.com'));
 }
 
 function addProfDOM(prof, depoisDe) {
@@ -263,6 +285,12 @@ function addProfDOM(prof, depoisDe) {
   el.querySelector('.p-foto').value = prof.foto_url || '';
   el.querySelector('.p-telegram').value = prof.telegram_chat_id || '';
   el._subjectEmail = prof.subject_email ?? null; // preservado, não editável na UI
+  el.querySelector('.p-almoco-ini').value = prof.pausa?.inicio || '';
+  el.querySelector('.p-almoco-fim').value = prof.pausa?.fim || '';
+  el._pausaEvento = prof.pausa?.evento_id || null;
+  ['.p-almoco-ini', '.p-almoco-fim', '.p-calendar'].forEach((s) =>
+    el.querySelector(s).addEventListener('input', () => avisoAgendaPessoal(el)));
+  avisoAgendaPessoal(el);
 
   const servWrap = el.querySelector('.servicos');
   (prof.servicos && prof.servicos.length ? prof.servicos : []).forEach((s) => addServDOM(servWrap, s));
@@ -276,6 +304,7 @@ function addProfDOM(prof, depoisDe) {
     copia.calendar_id = '';      // cada profissional precisa da PRÓPRIA agenda Google (§9.4)
     copia.telegram_chat_id = '';
     copia.foto_url = '';
+    if (copia.pausa) delete copia.pausa.evento_id; // o evento é da agenda do original
     addProfDOM(copia, el);
   });
 
@@ -365,28 +394,53 @@ async function salvar() {
       slug, porta: $('c-porta').value, tema: env.TEMA, perfil: env.PERFIL_PROFISSIONAL, dados,
     });
     // aplica os demais campos do .env (expediente, urls, instância…)
-    await api('PUT', `/api/clientes/${slug}`, { dados, env });
+    const r = await api('PUT', `/api/clientes/${slug}`, { dados, env });
     slugAtual = slug;
     modoCriar = false;
     $('fs-criar').hidden = true;
     $('form-titulo').textContent = `Editar: ${slug}`;
-  } else {
-    await api('PUT', `/api/clientes/${slugAtual}`, { dados, env });
+    return { slug, almoco: r.almoco };
   }
-  return slugAtual;
+  const r = await api('PUT', `/api/clientes/${slugAtual}`, { dados, env });
+  return { slug: slugAtual, almoco: r.almoco };
+}
+
+// Resultado do almoço na agenda Google (lib/pausas.js), para mostrar depois de salvar.
+function textoAlmoco(a) {
+  if (!a) return '';
+  const partes = [];
+  if (a.criados.length) partes.push(`almoço criado na agenda: ${a.criados.join(', ')}`);
+  if (a.alterados.length) partes.push(`almoço atualizado: ${a.alterados.join(', ')}`);
+  if (a.removidos.length) partes.push(`${a.removidos.length} almoço(s) removido(s) da agenda`);
+  return partes.length ? `✓ ${partes.join(' · ')}` : '';
 }
 
 $('form-cliente').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('form-erro').textContent = '';
-  try { await salvar(); await abrirLista(); }
-  catch (err) { $('form-erro').textContent = err.message; }
+  try {
+    const { slug, almoco } = await salvar();
+    if (almoco && almoco.avisos.length) {
+      // Fica na ficha (recarregada, com os ids novos) para a pessoa ver o aviso.
+      await abrirEdicao(slug);
+      $('form-erro').textContent = `Ficha salva. ${textoAlmoco(almoco)} ⚠ ${almoco.avisos.join(' ')}`;
+      return;
+    }
+    await abrirLista();
+    $('status-lista').textContent = textoAlmoco(almoco);
+  } catch (err) { $('form-erro').textContent = err.message; }
 });
 
 $('btn-salvar-aplicar').addEventListener('click', async () => {
   $('form-erro').textContent = '';
-  try { const slug = await salvar(); await aplicar(slug); }
-  catch (err) { $('form-erro').textContent = err.message; }
+  try {
+    const { slug, almoco } = await salvar();
+    await abrirEdicao(slug); // recarrega a ficha com os ids dos eventos de almoço
+    if (almoco && (almoco.avisos.length || textoAlmoco(almoco))) {
+      $('form-erro').textContent = [textoAlmoco(almoco), ...(almoco.avisos.length ? [`⚠ ${almoco.avisos.join(' ')}`] : [])].join(' ');
+    }
+    await aplicar(slug);
+  } catch (err) { $('form-erro').textContent = err.message; }
 });
 
 // ---------- aplicar ----------

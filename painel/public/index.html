@@ -30,6 +30,7 @@
       <h2>Clientes</h2>
       <button id="btn-novo">+ Novo cliente</button>
     </div>
+    <p id="status-lista" class="form-info" aria-live="polite"></p>
     <div id="lista-clientes" class="grid"></div>
   </section>
 
@@ -161,6 +162,12 @@
         <label>foto_url<input class="p-foto" placeholder="/fotos/nome.jpg" /></label>
         <label>Telegram chat_id<input class="p-telegram" /></label>
       </div>
+      <div class="linha">
+        <label>Almoço — início<input type="time" class="p-almoco-ini" step="300" /></label>
+        <label>Almoço — fim<input type="time" class="p-almoco-fim" step="300" /></label>
+      </div>
+      <small class="dica p-almoco-dica">Vazio = sem almoço. Preenchido, cria um evento "Almoço" toda semana (nos dias abertos) na agenda Google deste profissional e esse horário some da página de agendamento só para ele.</small>
+      <small class="dica aviso p-almoco-pessoal" hidden>Atenção: esta parece ser a agenda pessoal do dono (não foi criada pelo SlotMe) — o evento "Almoço" vai aparecer nela.</small>
       <div class="servicos"></div>
       <div class="prof-acoes">
         <button type="button" class="add p-add-serv">+ serviço</button>

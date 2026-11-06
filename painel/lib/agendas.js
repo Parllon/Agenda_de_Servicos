@@ -113,4 +113,4 @@ async function criarAgendasDoCliente(dados) {
   return resultado;
 }
 
-module.exports = { getCalendarClient, criarAgendasDoCliente, compartilhar, emailAdmin };
+module.exports = { getCalendarClient, criarAgendasDoCliente, compartilhar, emailAdmin, comRetry, TIMEZONE };

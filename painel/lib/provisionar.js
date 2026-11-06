@@ -2,7 +2,7 @@
 // SEM ninguém clicar em nada. É a mesma sequência que o wizard do painel faz pelo
 // navegador (public/cadastro.js → criarCliente), só que aqui no servidor:
 //
-//   config (criar + .env) → agendas Google → fotos → docker (aplicar) → DNS/túnel
+//   config (criar + .env) → agendas Google → almoço → fotos → docker (aplicar) → DNS/túnel
 //
 // Roda numa FILA SERIAL: um pedido por vez. Dois pedidos ao mesmo tempo pegariam
 // a mesma porta em C.proximaPorta() e brigariam pelo cloudflared_config.yml.
@@ -19,6 +19,7 @@ const { updateEnv } = require('./env');
 const { criar } = require('./criar');
 const { aplicar } = require('./aplicar');
 const { criarAgendasDoCliente } = require('./agendas');
+const { sincronizarCliente } = require('./pausas');
 const { registrarDNS, atualizarConfig, reloadCloudflared } = require('./cloudflare');
 const { paraConfig, escolherSlug, DOMINIO } = require('./pedido');
 
@@ -98,6 +99,19 @@ async function faseGoogle(reg) {
   }
 }
 
+// Almoço de cada profissional vira evento recorrente na agenda dele (lib/pausas.js).
+// Depois de "google" (precisa do calendar_id). Não mexe no banco do motor, então
+// não obriga a refazer o docker. Qualquer aviso conta como falha: o pedido fica
+// reprocessável e o almoço vai para a agenda na próxima tentativa.
+async function faseAlmoco(reg) {
+  const { dados, env } = C.ler(reg.slug);
+  // "antes" = a própria ficha: num reprocessamento, quem já tem evento fica como está
+  // (sem duplicar) e só os que faltam são criados.
+  const r = await sincronizarCliente(structuredClone(dados), dados, { antes: env.FOLGAS, depois: env.FOLGAS });
+  C.gravar(reg.slug, { dados });
+  if (r.avisos.length) throw new Error(r.avisos.join('; '));
+}
+
 async function faseFotos(reg) {
   const fotos = fotosPendentes(reg.protocolo);
   if (!fotos.length) return;
@@ -136,6 +150,7 @@ async function faseDns(reg) {
 const FASES = [
   { nome: 'config', fn: faseConfig, critica: true },
   { nome: 'google', fn: faseGoogle, critica: false },
+  { nome: 'almoco', fn: faseAlmoco, critica: false },
   { nome: 'fotos', fn: faseFotos, critica: false },
   { nome: 'docker', fn: faseDocker, critica: true },
   { nome: 'dns', fn: faseDns, critica: true },
