@@ -93,9 +93,14 @@ function msInicioDiaSP(data) {
 // 'YYYY-MM-DD' (dias de São Paulo) -> { dtInicio, dtFim } em UTC no formato do SQLite.
 // Ex.: dia 10 em SP = 10 03:00:00 .. 11 02:59:59 UTC (o evento das 22h do dia 10
 // é gravado como 01h do dia 11 UTC e continua contando no dia 10).
-function periodoUtc(inicio, fim, agora = new Date()) {
+function limitesSP(inicio, fim, agora = new Date()) {
   const fimDia = DATA.test(fim || '') ? fim : diaSP(agora);
   const iniDia = DATA.test(inicio || '') ? inicio : diaSP(new Date(msInicioDiaSP(fimDia) - 30 * 86400000));
+  return { iniDia, fimDia };
+}
+
+function periodoUtc(inicio, fim, agora = new Date()) {
+  const { iniDia, fimDia } = limitesSP(inicio, fim, agora);
   return {
     dtInicio: sqlUtc(msInicioDiaSP(iniDia)),
     dtFim: sqlUtc(msInicioDiaSP(fimDia) + 86400000 - 1000),
@@ -282,7 +287,112 @@ function getSite(inicio, fim) {
   return site;
 }
 
+// ------ Detalhe de UM salão ------
+// Além do que getMetricas já traz: serviços mais agendados, números por
+// profissional (com ocupação aproximada) e o mapa de calor dia da semana × faixa
+// de horário. `cfg` vem do .env do cliente: { expedienteInicio, expedienteFim, folgas: [0..6] }.
+//
+// - Serviços / profissionais / calor contam agendamentos CRIADOS no período
+//   (procura), qualquer status. O calor usa no mínimo 30 dias para ter volume.
+// - Ocupação usa a DATA DO ATENDIMENTO (inicio) dentro do período, só confirmados:
+//   minutos agendados ÷ minutos de expediente nos dias abertos. É aproximada: não
+//   desconta pausas nem horários diferentes por profissional.
+const DIA_MS = 86400000;
+const OFFSET_MS = OFFSET_SP_H * 3600000;
+
+function getSalao(slug, inicio, fim, cfg = {}, agora = new Date()) {
+  const { iniDia, fimDia } = limitesSP(inicio, fim, agora);
+  const base = getMetricas([slug], iniDia, fimDia)[slug];
+  const ini = Number.isInteger(cfg.expedienteInicio) ? cfg.expedienteInicio : 9;
+  const fimH = Number.isInteger(cfg.expedienteFim) && cfg.expedienteFim > ini ? cfg.expedienteFim : 19;
+  const folgas = new Set(Array.isArray(cfg.folgas) ? cfg.folgas : []);
+  const r = { ...base, periodo: { inicio: iniDia, fim: fimDia }, servicos: [], profissionais: [], calor: null };
+  const cdb = getClienteDb(slug);
+  if (!cdb) return r;
+
+  let profs = [];
+  try { profs = cdb.prepare('SELECT id, nome FROM profissionais ORDER BY id').all(); } catch (e) { /* banco antigo */ }
+
+  let linhas = [];
+  let linhasCalor = [];
+  let linhasOcup = [];
+  const calorIni = msInicioDiaSP(iniDia) > msInicioDiaSP(fimDia) - 29 * DIA_MS
+    ? diaSP(new Date(msInicioDiaSP(fimDia) - 29 * DIA_MS + OFFSET_MS)) : iniDia;
+  try {
+    const sel = cdb.prepare(
+      `SELECT inicio, fim, status, servico_nome, profissional_id FROM agendamentos
+       WHERE criado_em BETWEEN ? AND ?`
+    );
+    const p = periodoUtc(iniDia, fimDia);
+    linhas = sel.all(p.dtInicio, p.dtFim);
+    const pc = periodoUtc(calorIni, fimDia);
+    linhasCalor = sel.all(pc.dtInicio, pc.dtFim);
+    // atendimentos dentro do período podem ter sido marcados até ~4 meses antes
+    linhasOcup = cdb.prepare(
+      `SELECT inicio, fim, profissional_id FROM agendamentos
+       WHERE status = 'confirmado' AND criado_em >= ?`
+    ).all(sqlUtc(msInicioDiaSP(iniDia) - 120 * DIA_MS));
+  } catch (e) {
+    return r; // banco antigo sem as colunas
+  }
+
+  // Serviços
+  const porServico = new Map();
+  for (const l of linhas) {
+    const nome = (l.servico_nome || '').trim() || '(sem nome)';
+    porServico.set(nome, (porServico.get(nome) || 0) + 1);
+  }
+  r.servicos = [...porServico].map(([nome, total]) => ({ nome, total }))
+    .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome)).slice(0, 8);
+
+  // Dias abertos no período (para a ocupação)
+  let diasAbertos = 0;
+  for (let ms = msInicioDiaSP(iniDia); ms <= msInicioDiaSP(fimDia); ms += DIA_MS) {
+    if (!folgas.has(new Date(ms).getUTCDay())) diasAbertos++;
+  }
+  const minutosAbertos = diasAbertos * (fimH - ini) * 60;
+  const msIni = msInicioDiaSP(iniDia);
+  const msFim = msInicioDiaSP(fimDia) + DIA_MS;
+
+  const porProf = new Map(profs.map((p) => [p.id, { id: p.id, nome: p.nome, total: 0, cancelados: 0, minutos: 0 }]));
+  const prof = (id) => {
+    if (!porProf.has(id)) porProf.set(id, { id, nome: `Profissional ${id ?? '?'}`, total: 0, cancelados: 0, minutos: 0 });
+    return porProf.get(id);
+  };
+  for (const l of linhas) {
+    const p = prof(l.profissional_id);
+    p.total++;
+    if (l.status === 'cancelado') p.cancelados++;
+  }
+  for (const l of linhasOcup) {
+    const a = Date.parse(l.inicio), b = Date.parse(l.fim);
+    if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a || a < msIni || a >= msFim) continue;
+    prof(l.profissional_id).minutos += Math.round((b - a) / 60000);
+  }
+  r.profissionais = [...porProf.values()].map((p) => ({
+    ...p,
+    ocupacao: minutosAbertos ? Math.min(1, p.minutos / minutosAbertos) : null,
+  })).sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
+
+  // Mapa de calor: linhas = dias abertos (seg..dom), colunas = faixas de 2h do expediente
+  const faixas = [];
+  for (let h = ini; h < fimH; h += 2) faixas.push(h);
+  const ordem = [1, 2, 3, 4, 5, 6, 0].filter((d) => !folgas.has(d));
+  const grade = Object.fromEntries(ordem.map((d) => [d, faixas.map(() => 0)]));
+  for (const l of linhasCalor) {
+    const a = Date.parse(l.inicio);
+    if (!Number.isFinite(a)) continue;
+    const sp = new Date(a - OFFSET_MS);
+    const d = sp.getUTCDay(), h = sp.getUTCHours();
+    if (!grade[d]) continue;
+    const i = faixas.findIndex((f) => h >= f && h < f + 2);
+    if (i >= 0) grade[d][i]++;
+  }
+  r.calor = { inicio: calorIni, fim: fimDia, faixas, dias: ordem.map((d) => ({ dia: d, valores: grade[d] })) };
+  return r;
+}
+
 module.exports = {
-  inserirLpEvento, getMetricas, getSite, slugValido, slugsExtras, limparUtm, periodoUtc,
+  inserirLpEvento, getMetricas, getSite, getSalao, slugValido, slugsExtras, limparUtm, periodoUtc,
   TIPOS_EVENTO, FUNIL_CADASTRO, db,
 };

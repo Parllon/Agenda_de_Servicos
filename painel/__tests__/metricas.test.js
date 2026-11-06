@@ -141,3 +141,57 @@ describe('série diária e último agendamento', () => {
     expect(r.bya.ultimoAgendamento).toBe('2026-11-11T01:30:00Z');
   });
 });
+
+describe('getSalao (detalhe de um salão)', () => {
+  beforeAll(() => {
+    const dir = path.join(RAIZ, 'clientes', 'nina', 'banco_dados');
+    fs.mkdirSync(dir, { recursive: true });
+    const cdb = new Database(path.join(dir, 'agendamentos.db'));
+    cdb.exec(`
+      CREATE TABLE profissionais (id INTEGER PRIMARY KEY, nome TEXT NOT NULL, calendar_id TEXT);
+      CREATE TABLE agendamentos (id INTEGER PRIMARY KEY, profissional_id INTEGER, servico_nome TEXT,
+        inicio TEXT, fim TEXT, status TEXT, criado_em TEXT);
+    `);
+    cdb.prepare("INSERT INTO profissionais (id, nome) VALUES (1, 'Ana'), (2, 'Bia')").run();
+    const ag = cdb.prepare('INSERT INTO agendamentos (profissional_id, servico_nome, inicio, fim, status, criado_em) VALUES (?, ?, ?, ?, ?, ?)');
+    // sábado 14/11, 9h e 10h em SP (12h/13h UTC)
+    ag.run(1, 'Manicure', '2026-11-14T12:00:00.000Z', '2026-11-14T13:00:00.000Z', 'confirmado', '2026-11-10 15:00:00');
+    ag.run(1, 'Manicure', '2026-11-14T13:00:00.000Z', '2026-11-14T14:00:00.000Z', 'cancelado', '2026-11-10 15:05:00');
+    // terça 10/11, 17h em SP
+    ag.run(2, 'Pedicure', '2026-11-10T20:00:00.000Z', '2026-11-10T21:30:00.000Z', 'confirmado', '2026-11-10 12:00:00');
+    // criado fora do período (antes): não conta em serviços/profissionais
+    ag.run(2, 'Pedicure', '2026-11-11T12:00:00.000Z', '2026-11-11T13:00:00.000Z', 'confirmado', '2026-11-01 12:00:00');
+    cdb.close();
+  });
+
+  const cfg = { expedienteInicio: 9, expedienteFim: 19, folgas: [0] };
+  const r = () => M.getSalao('nina', '2026-11-10', '2026-11-16', cfg);
+
+  test('serviços mais agendados no período (qualquer status)', () => {
+    expect(r().servicos).toEqual([{ nome: 'Manicure', total: 2 }, { nome: 'Pedicure', total: 1 }]);
+  });
+
+  test('por profissional: total, cancelados e ocupação pela data do atendimento', () => {
+    const [ana, bia] = r().profissionais;
+    expect(ana).toMatchObject({ nome: 'Ana', total: 2, cancelados: 1, minutos: 60 });
+    // 7 dias menos o domingo = 6 dias × 10h = 3600 min; Bia: 90 (criado no período) + 60 (criado antes, atendido no período)
+    expect(bia).toMatchObject({ nome: 'Bia', total: 1, cancelados: 0, minutos: 150 });
+    expect(ana.ocupacao).toBeCloseTo(60 / 3600);
+  });
+
+  test('mapa de calor: faixas de 2h, sem o dia de folga, mínimo de 30 dias', () => {
+    const c = r().calor;
+    expect(c.faixas).toEqual([9, 11, 13, 15, 17]);
+    expect(c.dias.map((d) => d.dia)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(c.inicio).toBe('2026-10-18');
+    expect(c.dias.find((d) => d.dia === 6).valores).toEqual([2, 0, 0, 0, 0]);
+    expect(c.dias.find((d) => d.dia === 2).valores).toEqual([0, 0, 0, 0, 1]);
+    expect(c.dias.find((d) => d.dia === 3).valores).toEqual([1, 0, 0, 0, 0]); // o criado em 01/11 entra no calor
+  });
+
+  test('salão sem banco devolve listas vazias', () => {
+    const x = M.getSalao('naoexiste', '2026-11-10', '2026-11-16', cfg);
+    expect(x.servicos).toEqual([]);
+    expect(x.calor).toBeNull();
+  });
+});

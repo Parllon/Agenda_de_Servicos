@@ -147,4 +147,21 @@ async function ativarSubdominio(slug, porta) {
   return r;
 }
 
-module.exports = { ativarSubdominio, registrarDNS, atualizarConfig, reloadCloudflared };
+// Endereço público de um cliente, achado pela porta no cloudflared_config.yml.
+// Clientes antigos não seguem <slug>.agendamentos.app.br (ex.: bya = agendamento.*),
+// então a porta é a fonte confiável. Prefere *.agendamentos.app.br; '' se não achar.
+function urlPorPorta(porta, conteudo) {
+  const p = parseInt(porta, 10);
+  if (!Number.isInteger(p)) return '';
+  let texto = conteudo;
+  if (texto === undefined) {
+    try { texto = fs.readFileSync(CONFIG_REPO, 'utf8'); } catch { return ''; }
+  }
+  const hosts = [];
+  const re = /hostname:\s*([a-z0-9.-]+)\s*\n\s*service:\s*http:\/\/[^:\s]+:(\d+)/gi;
+  for (const m of texto.matchAll(re)) if (parseInt(m[2], 10) === p) hosts.push(m[1].toLowerCase());
+  const host = hosts.find((h) => h.endsWith(`.${DOMINIO}`)) || hosts[0];
+  return host ? `https://${host}` : '';
+}
+
+module.exports = { ativarSubdominio, registrarDNS, atualizarConfig, reloadCloudflared, urlPorPorta };

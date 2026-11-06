@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Salão — Métricas SlotMe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap">
+  <link rel="stylesheet" href="/metricas.css">
+  <style>
+    /* Só desta tela (o resto vem de metricas.css) */
+    .topo-salao { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+    .topo-salao .migalha { font-size: 13px; color: var(--suave); text-decoration: none; }
+    .topo-salao .migalha:hover { color: var(--vermelho-ponto); }
+    .titulo-salao { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+    h1 { margin: 0; font-family: var(--titulo); font-size: 28px; }
+    .botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+    .botao { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 12px; font-size: 14px; font-weight: 700; text-decoration: none; }
+    .botao.claro { border: 1.5px solid rgba(28,53,82,.22); background: #fff; color: var(--navy); }
+    .botao.escuro { background: var(--navy); color: #fff; }
+    .botao.escuro:hover { background: var(--navy-escuro); color: #fff; }
+    .kpis.salao { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .kpis.salao .kpi-val { font-size: 30px; }
+
+    .funil.agenda li { grid-template-columns: 170px minmax(0, 1fr) 48px 64px; }
+
+    .calor { display: grid; gap: 4px; font-size: 12px; }
+    .calor .cab { text-align: center; color: var(--suave); padding-bottom: 4px; }
+    .calor .dia { color: var(--suave); font-weight: 600; align-self: center; }
+    .calor .cel { height: 34px; border-radius: 6px; display: grid; place-items: center; font-weight: 700; }
+
+    .servico { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 10px; align-items: center; }
+    .servico > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .servico span { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .servico .trilho { height: 10px; }
+    .servico strong { text-align: right; }
+
+    .prof { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--linha); }
+    .prof .inicial { width: 40px; height: 40px; flex-shrink: 0; border-radius: 999px; display: grid; place-items: center; background: var(--trilho); font-family: var(--titulo); font-weight: 700; }
+    .prof .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .prof .txt span { font-size: 13px; color: var(--suave); }
+    .prof .n { font-family: var(--titulo); font-size: 20px; }
+
+    @media (max-width: 640px) {
+      h1 { font-size: 23px; }
+      .kpis.salao { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .kpis.salao .kpi-val { font-size: 26px; }
+      .botoes, .botao { flex: 1 1 auto; justify-content: center; }
+      .funil.agenda li { grid-template-columns: 104px minmax(0, 1fr) 36px 48px; gap: 8px; }
+      .calor .cel { height: 30px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="login" role="dialog" aria-modal="true" aria-labelledby="login-titulo">
+  <form id="form-login">
+    <h2 id="login-titulo">SlotMe Métricas</h2>
+    <p>Acesso restrito ao dono do painel.</p>
+    <label class="so-leitor" for="senha">Senha</label>
+    <input type="password" id="senha" placeholder="Senha" autocomplete="current-password">
+    <button type="submit">Entrar</button>
+    <div id="login-erro" role="alert"></div>
+  </form>
+</div>
+
+<header>
+  <div class="cab">
+    <div class="marca">
+      <svg width="28" height="28" viewBox="0 0 52 52" aria-hidden="true"><rect x="2" y="6" width="48" height="44" rx="12" fill="#f2717f"></rect><rect x="12" y="2" width="4" height="10" rx="2" fill="#edf1f8"></rect><rect x="36" y="2" width="4" height="10" rx="2" fill="#edf1f8"></rect><path d="M16 28 l7 7 l14 -14" fill="none" stroke="#f5f7fb" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      <strong>SlotMe</strong>
+      <span>Métricas</span>
+    </div>
+    <nav aria-label="Seções">
+      <a href="/metricas" data-volta="">Visão geral</a>
+      <a href="/metricas#saloes" data-volta="#saloes" class="atual" aria-current="page">Salões</a>
+      <a href="/metricas#site" data-volta="#site">Site e cadastro</a>
+      <a href="/metricas#pedidos" data-volta="#pedidos">Pedidos</a>
+    </nav>
+    <a class="voltar" href="/painel">← Voltar ao painel</a>
+  </div>
+</header>
+
+<div class="barra">
+  <div class="barra-in">
+    <span class="barra-rot" id="rot-periodo">Período</span>
+    <div role="group" aria-labelledby="rot-periodo" style="display:flex;flex-wrap:wrap;gap:8px">
+      <button type="button" class="btn-p" data-dias="1">Hoje</button>
+      <button type="button" class="btn-p" data-dias="7">7 dias</button>
+      <button type="button" class="btn-p" data-dias="30">30 dias</button>
+      <button type="button" class="btn-p" data-dias="90">90 dias</button>
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <label class="comparar"><input type="checkbox" id="comparar"><span id="rot-comparar">Comparar com o período anterior</span></label>
+    <span class="sep" aria-hidden="true"></span>
+    <div class="datas">
+      <label for="dt-inicio">De</label><input type="date" id="dt-inicio">
+      <label for="dt-fim">até</label><input type="date" id="dt-fim">
+    </div>
+    <span id="status" aria-live="polite">Carregando…</span>
+  </div>
+</div>
+
+<main>
+  <div class="topo-salao">
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+      <a class="migalha" href="/metricas#saloes" data-volta="#saloes">Salões ›</a>
+      <div class="titulo-salao">
+        <h1 id="nome">…</h1>
+        <span id="situacao"></span>
+      </div>
+      <span class="sub" id="linha-info"></span>
+    </div>
+    <div class="botoes" id="botoes"></div>
+  </div>
+
+  <section class="kpis salao" id="kpis" aria-label="Resumo do salão"></section>
+
+  <div class="linha-cartoes">
+    <section class="cartao" aria-labelledby="t-funil" style="flex: 3 1 540px">
+      <h2 id="t-funil">Funil da página de agendamento</h2>
+      <div id="funil"></div>
+    </section>
+
+    <section class="cartao" aria-labelledby="t-calor" style="flex: 2 1 400px">
+      <div>
+        <h2 id="t-calor">Horários mais procurados</h2>
+        <span class="sub" id="calor-sub">Quanto mais escuro, mais agendamentos</span>
+      </div>
+      <div id="calor"></div>
+      <p class="nota" id="calor-nota" style="font-size:13px;color:var(--suave)"></p>
+    </section>
+  </div>
+
+  <div class="linha-cartoes">
+    <section class="cartao" aria-labelledby="t-serv" style="flex: 1 1 380px">
+      <h2 id="t-serv">Serviços mais agendados</h2>
+      <div id="servicos" style="display:flex;flex-direction:column;gap:14px"></div>
+    </section>
+
+    <section class="cartao" aria-labelledby="t-prof" style="flex: 1 1 380px; gap: 6px">
+      <h2 id="t-prof" style="margin-bottom:8px">Por profissional</h2>
+      <div id="profissionais"></div>
+      <p class="nota" style="margin-top:8px;font-size:13px;color:var(--suave)">Ocupação = horas agendadas ÷ horas abertas na agenda, pela data do atendimento. É aproximada: não desconta pausas nem horários diferentes por profissional.</p>
+    </section>
+  </div>
+</main>
+
+<script src="/metricas-comum.js"></script>
+<script>
+// ── Qual salão ───────────────────────────────────────────────────────────────
+// Endereço: /metricas/salao/<slug>?inicio=AAAA-MM-DD&fim=AAAA-MM-DD
+const SLUG = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
+
+const ETAPAS = [
+  ['pagina_vista', 'Abriu a página'],
+  ['profissional_selecionado', 'Escolheu profissional'],
+  ['servico_selecionado', 'Escolheu serviço'],
+  ['horario_selecionado', 'Escolheu horário'],
+  ['dados_preenchidos', 'Preencheu os dados'],
+  ['agendamento_criado', 'Agendou'],
+];
+// Texto do destaque "maior perda", pela etapa onde a pessoa parou.
+const PERDA = {
+  'Escolheu profissional': ['ao escolher o profissional', 'abrem a página e não escolhem o profissional'],
+  'Escolheu serviço': ['ao escolher o serviço', 'escolhem o profissional e não escolhem o serviço'],
+  'Escolheu horário': ['ao escolher o horário', 'escolhem o serviço e não marcam um horário'],
+  'Preencheu os dados': ['ao preencher os dados', 'escolhem o horário e não informam nome e telefone'],
+  'Agendou': ['na confirmação', 'preenchem os dados e não confirmam'],
+};
+
+// Os links do topo voltam para a visão geral no mesmo período.
+function atualizarLinksDeVolta() {
+  document.querySelectorAll('[data-volta]').forEach((a) => {
+    a.href = `/metricas?inicio=${estado.inicio}&fim=${estado.fim}${a.dataset.volta}`;
+  });
+  history.replaceState(null, '', `${location.pathname}?inicio=${estado.inicio}&fim=${estado.fim}`);
+}
+
+// ── Carregar ─────────────────────────────────────────────────────────────────
+async function carregar() {
+  const status = $('#status');
+  status.textContent = 'Carregando…';
+  sincronizarBarra();
+  atualizarLinksDeVolta();
+  const ant = periodoAnterior();
+  const url = (i, f) => `/api/metricas/salao/${encodeURIComponent(SLUG)}?inicio=${i}&fim=${f}`;
+  try {
+    const [atual, anterior, clientes, pedidos] = await Promise.allSettled([
+      api(url(estado.inicio, estado.fim)),
+      api(url(ant.inicio, ant.fim)),
+      api('/api/clientes'),
+      api('/api/pedidos'),
+    ]);
+    const falhas = [atual, anterior, clientes, pedidos].filter((r) => r.status === 'rejected').map((r) => r.reason);
+    if (falhas.some((e) => e instanceof SemLogin)) { mostrarLogin(); return; }
+    if (atual.status === 'rejected') throw atual.reason;
+    estado.dados = {
+      atual: atual.value,
+      anterior: anterior.status === 'fulfilled' ? anterior.value : null,
+      cliente: clientes.status === 'fulfilled' ? clientes.value.find((c) => c.slug === SLUG) : null,
+      pedido: pedidos.status === 'fulfilled' ? pedidos.value.find((p) => p.slug === SLUG) : null,
+    };
+    renderizar();
+    const agora = new Date(Date.now() - SP_MS).toISOString().slice(11, 16);
+    status.textContent = `${dataCurta(estado.inicio)} → ${dataCurta(estado.fim)} · horário de Brasília · atualizado às ${agora}`
+      + (falhas.length ? ' · alguns dados não carregaram' : '');
+  } catch (e) {
+    status.textContent = 'Erro ao carregar: ' + e.message;
+    $('#nome').textContent = SLUG || 'Salão';
+  }
+}
+
+// ── Desenho ──────────────────────────────────────────────────────────────────
+function renderTopo(d) {
+  const f = d.atual.ficha;
+  const sit = situacao(d.cliente || { ativo: null }, d.pedido);
+  document.title = `${f.nome} — Métricas SlotMe`;
+  $('#nome').textContent = f.nome;
+  $('#situacao').innerHTML = `<span class="selo ${sit.cls}">${esc(sit.txt)}</span>`;
+  const partes = [];
+  if (f.url) partes.push(f.url.replace(/^https:\/\//, ''));
+  partes.push(`${f.profissionais} profissiona${f.profissionais === 1 ? 'l' : 'is'}`);
+  if (d.pedido?.trial_ate) partes.push(`teste até ${dataCurta(diaSP(Date.parse(d.pedido.trial_ate)))}`);
+  else if (d.pedido?.criado_em) partes.push(`criado pelo site em ${dataCurta(diaSP(Date.parse(d.pedido.criado_em)))}`);
+  $('#linha-info').textContent = partes.join(' · ');
+
+  // WhatsApp: o do dono (cadastro do site) ou o de contato do salão.
+  const whats = linkWhats(d.pedido?.contato?.whatsapp) || linkWhats(f.whatsapp);
+  $('#botoes').innerHTML = (f.url ? `<a class="botao claro" href="${esc(f.url)}" target="_blank" rel="noopener">Abrir página</a>` : '')
+    + (whats ? `<a class="botao escuro" href="${esc(whats)}" target="_blank" rel="noopener">Falar no WhatsApp</a>` : '');
+}
+
+function renderKpis(d) {
+  const m = d.atual.metricas, a = d.anterior?.metricas;
+  const comparar = estado.comparar && a;
+  const len = nDias(estado.inicio, estado.fim);
+  const rotAnt = len === 1 ? 'que o dia anterior' : `que os ${len} dias anteriores`;
+  const total = (x) => (x.agendamentosConfirmados || 0) + (x.agendamentosCancelados || 0);
+  const criados = total(m), canc = m.agendamentosCancelados || 0;
+  const visitas = m.funil?.pagina_vista || 0, agendou = m.funil?.agendamento_criado || 0;
+  const conv = visitas ? (agendou / visitas) * 100 : null;
+  const convAnt = a && a.funil?.pagina_vista ? (a.funil.agendamento_criado / a.funil.pagina_vista) * 100 : null;
+
+  let dConv = { txt: visitas ? `${fmt(agendou)} de ${fmt(visitas)} pessoas` : 'sem visitas no período', cor: 'var(--suave)' };
+  if (comparar && conv != null && convAnt != null) {
+    const p = conv - convAnt;
+    dConv = Math.abs(p) < 0.5
+      ? { txt: '= igual ao período anterior', cor: 'var(--suave)' }
+      : { txt: `${p > 0 ? '↑' : '↓'} ${Math.round(Math.abs(p))} ponto${Math.round(Math.abs(p)) === 1 ? '' : 's'}`, cor: p > 0 ? 'var(--verde)' : 'var(--vermelho)' };
+  }
+  const lp = m.lp?.lp_vista || 0;
+  const kpis = [
+    { rot: `Agendamentos (${len === 1 ? 'hoje' : `${len} dias`})`, val: fmt(criados),
+      delta: comparar ? delta(criados, total(a), { rotuloAnt: rotAnt }) : { txt: `${fmt(m.agendamentosConfirmados)} confirmados`, cor: 'var(--suave)' } },
+    { rot: 'Cancelados', val: fmt(canc),
+      delta: { txt: criados ? `${pctTxt((canc / criados) * 100, 1)} dos agendamentos` : 'nenhum agendamento', cor: 'var(--suave)' } },
+    { rot: 'Visitas na página', val: fmt(visitas),
+      delta: comparar ? delta(visitas, a.funil?.pagina_vista || 0, { rotuloAnt: rotAnt }) : { txt: lp ? `${fmt(lp)} na landing page` : 'pessoas que abriram o agendamento', cor: 'var(--suave)' } },
+    { rot: 'Visita → agendamento', val: conv == null ? '—' : pctTxt(conv, 0), delta: dConv },
+  ];
+  $('#kpis').innerHTML = kpis.map((k) => `
+    <div class="kpi">
+      <span class="kpi-rot">${esc(k.rot)}</span>
+      <span class="kpi-val">${esc(k.val)}</span>
+      ${k.delta.txt ? `<span class="kpi-delta" style="color:${k.delta.cor}">${esc(k.delta.txt)}</span>` : ''}
+    </div>`).join('');
+}
+
+function renderFunil(m) {
+  const passos = ETAPAS.map(([k, rot]) => [rot, m.funil?.[k] || 0]);
+  if (!passos[0][1]) {
+    $('#funil').innerHTML = '<p class="vazio">Ninguém abriu a página de agendamento no período.</p>';
+    return;
+  }
+  const pior = maiorPerda(passos);
+  let html = '';
+  if (pior) {
+    const [titulo, frase] = PERDA[pior.etapa] || [`em ${pior.etapa.toLowerCase()}`, 'param nessa etapa'];
+    html += `<div class="destaque"><b>−${pior.queda}%</b><span><strong>Maior perda: ${esc(titulo)}.</strong>
+      ${fmt(pior.perdidos)} de ${fmt(pior.base)} pessoas ${esc(frase)}.</span></div>`;
+  }
+  html += htmlFunil(passos, { pior: pior?.etapa }).replace('<ol class="funil">', '<ol class="funil agenda">');
+  $('#funil').innerHTML = html;
+}
+
+function renderCalor(m) {
+  const c = m.calor;
+  if (!c || !c.dias.length || !c.faixas.length) {
+    $('#calor').innerHTML = '<p class="vazio">Sem dados de horário.</p>';
+    $('#calor-nota').textContent = '';
+    return;
+  }
+  const dias = nDias(c.inicio, c.fim);
+  $('#calor-sub').textContent = `Quanto mais escuro, mais agendamentos (${dias === nDias(estado.inicio, estado.fim) ? 'no período' : `últimos ${dias} dias`})`;
+  const max = Math.max(0, ...c.dias.flatMap((d) => d.valores));
+  const total = c.dias.reduce((a, d) => a + d.valores.reduce((x, y) => x + y, 0), 0);
+  const faixa = (h) => `${h}h–${h + 2}h`;
+  const celula = (n, dia, h) => {
+    const a = max ? n / max : 0;
+    const fundo = `rgba(28, 53, 82, ${(0.06 + a * 0.87).toFixed(2)})`;
+    const cor = a > 0.45 ? '#fff' : 'var(--navy)';
+    return `<span class="cel" style="background:${fundo};color:${cor}" title="${esc(`${SEMANA_LONGA[dia]}, ${faixa(h)}: ${n} agendamento${n === 1 ? '' : 's'}`)}">${n}</span>`;
+  };
+  const descricao = c.dias.map((d) => `${SEMANA_LONGA[d.dia]}: ${d.valores.map((v, i) => `${faixa(c.faixas[i])} ${v}`).join(', ')}`).join('. ');
+  $('#calor').innerHTML = `<div class="calor" role="img" aria-label="${esc(`Mapa de calor de agendamentos. ${descricao}`)}"
+      style="grid-template-columns:44px repeat(${c.faixas.length},minmax(0,1fr))">
+      <span></span>${c.faixas.map((h) => `<span class="cab">${h}h</span>`).join('')}
+      ${c.dias.map((d) => `<span class="dia">${SEMANA[d.dia]}</span>${d.valores.map((n, i) => celula(n, d.dia, c.faixas[i])).join('')}`).join('')}
+    </div>`;
+
+  // Frase: horário que lota primeiro e o dia mais vazio.
+  let nota = '';
+  if (!total) nota = 'Ainda não há agendamentos para montar o mapa.';
+  else {
+    let topo = null;
+    for (const d of c.dias) d.valores.forEach((v, i) => { if (!topo || v > topo.v) topo = { v, dia: d.dia, h: c.faixas[i] }; });
+    nota = `${SEMANA_LONGA[topo.dia]} das ${topo.h}h às ${topo.h + 2}h é o horário mais procurado.`;
+    const somas = c.dias.map((d) => ({ dia: d.dia, s: d.valores.reduce((x, y) => x + y, 0) }));
+    const vazio = somas.reduce((a, b) => (b.s < a.s ? b : a));
+    if (total >= 10 && vazio.dia !== topo.dia) nota += ` ${SEMANA_LONGA[vazio.dia]} é o dia com mais folga.`;
+  }
+  $('#calor-nota').textContent = nota;
+}
+
+function renderServicos(m) {
+  const lista = m.servicos || [];
+  if (!lista.length) { $('#servicos').innerHTML = '<p class="vazio">Nenhum agendamento no período.</p>'; return; }
+  const max = Math.max(1, ...lista.map((s) => s.total));
+  $('#servicos').innerHTML = lista.map((s) => `
+    <div class="servico">
+      <div><span title="${esc(s.nome)}">${esc(s.nome)}</span><div class="trilho"><div style="width:${Math.max(2, Math.round((s.total / max) * 100))}%"></div></div></div>
+      <strong>${fmt(s.total)}</strong>
+    </div>`).join('');
+}
+
+function renderProfissionais(m) {
+  const lista = m.profissionais || [];
+  if (!lista.length) { $('#profissionais').innerHTML = '<p class="vazio">Nenhum profissional cadastrado.</p>'; return; }
+  $('#profissionais').innerHTML = lista.map((p) => {
+    const partes = [];
+    if (p.ocupacao != null) partes.push(`Ocupação ${pctTxt(p.ocupacao * 100, 0)}`);
+    partes.push(`${fmt(p.cancelados)} cancelado${p.cancelados === 1 ? '' : 's'}`);
+    const inicial = (p.nome || '?').trim().charAt(0).toUpperCase();
+    return `<div class="prof">
+      <span class="inicial" aria-hidden="true">${esc(inicial)}</span>
+      <div class="txt"><strong>${esc(p.nome)}</strong><span>${esc(partes.join(' · '))}</span></div>
+      <strong class="n" title="agendamentos no período">${fmt(p.total)}</strong>
+    </div>`;
+  }).join('');
+}
+
+function renderizar() {
+  const d = estado.dados;
+  if (!d) return;
+  renderTopo(d);
+  renderKpis(d);
+  renderFunil(d.atual.metricas);
+  renderCalor(d.atual.metricas);
+  renderServicos(d.atual.metricas);
+  renderProfissionais(d.atual.metricas);
+}
+
+// ── Início ───────────────────────────────────────────────────────────────────
+iniciar();
+</script>
+</body>
+</html>

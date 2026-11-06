@@ -19,7 +19,7 @@ const { aplicar } = require('./lib/aplicar');
 const { deletar } = require('./lib/deletar');
 const { pausar, reativar, estaAtivo } = require('./lib/pausar');
 const { criarAgendasDoCliente } = require('./lib/agendas');
-const { registrarDNS, atualizarConfig, reloadCloudflared } = require('./lib/cloudflare');
+const { registrarDNS, atualizarConfig, reloadCloudflared, urlPorPorta } = require('./lib/cloudflare');
 const P = require('./lib/pedido');
 const Pedidos = require('./lib/pedidos-store');
 const { guardarFotos, enfileirar } = require('./lib/provisionar');
@@ -334,6 +334,34 @@ app.get('/api/metricas', exigirLogin, (req, res) => {
   }
 });
 
+// Detalhe de um salão (tela /metricas/salao/<slug>): métricas do período + o que
+// a tela precisa da ficha do cliente (expediente, folgas, nº de profissionais,
+// endereço público e contatos). Só leitura.
+app.get('/api/metricas/salao/:slug', exigirLogin, (req, res) => {
+  const slug = req.params.slug;
+  if (!C.slugValido(slug) || !C.existe(slug)) return res.status(404).json({ erro: `cliente '${slug}' não existe` });
+  try {
+    const { dados, env } = C.ler(slug);
+    const hora = (v, padrao) => { const n = parseInt(v, 10); return Number.isInteger(n) && n >= 0 && n <= 24 ? n : padrao; };
+    const folgas = String(env.FOLGAS ?? '0').split(',').map((x) => parseInt(x, 10)).filter((n) => n >= 0 && n <= 6);
+    const cfg = { expedienteInicio: hora(env.EXPEDIENTE_INICIO, 9), expedienteFim: hora(env.EXPEDIENTE_FIM, 19), folgas };
+    const { inicio, fim } = req.query;
+    res.json({
+      ficha: {
+        nome: (dados.negocio && dados.negocio.nome) || slug,
+        profissionais: Array.isArray(dados.profissionais) ? dados.profissionais.length : 0,
+        whatsapp: (dados.negocio && (dados.negocio.whatsapp_contato || dados.negocio.telefone)) || '',
+        url: urlPorPorta(env.PORTA_EXTERNA),
+        ...cfg,
+      },
+      metricas: M.getSalao(slug, inicio, fim, cfg),
+    });
+  } catch (e) {
+    console.error('[metricas/salao]', e.message);
+    res.status(500).json({ erro: 'Falha ao carregar o salão' });
+  }
+});
+
 // ---- UI estática ----
 const PUBLIC = path.join(__dirname, 'public');
 
@@ -347,6 +375,7 @@ app.get('/', (req, res, next) => {
 
 // Dashboard de métricas (antes do static para não ser mascarado).
 app.get('/metricas', (_req, res) => res.sendFile('metricas.html', { root: PUBLIC }));
+app.get('/metricas/salao/:slug', (_req, res) => res.sendFile('salao.html', { root: PUBLIC }));
 
 // Painel de edição de clientes: caminho explícito, acessível inclusive sob cadastro.*
 // (a raiz do cadastro.* serve o wizard; aqui é a entrada para o painel admin).
