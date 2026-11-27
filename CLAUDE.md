@@ -62,6 +62,10 @@ substituiu Evolution API + wa-sender em 2026-06-27. Todos os clientes em
 5. **WhatsApp:** `WHATSAPP_MODE=central` em todos os clientes, via **WAHA** (`/waha`,
    sessão `agendamento`). Se a sessão cair, reconectar: `POST /api/sessions/agendamento/restart`
    (+ QR se não recuperar sozinho — ver §8.7 da `DOCUMENTACAO-SLOTME.md`).
+   **Todo cliente precisa de `WEBHOOK_TOKEN` no `.env`**: sem ele o salão recusa (403)
+   as respostas 1/2/3 e o "oi" do dono, em silêncio para quem mandou
+   (`painel/gerar-tokens-webhook.js` cria os que faltam). Com 2+ horários pendentes,
+   `2`/`3` não cancelam: o cliente recebe a lista. Publicação e volta atrás: §8.4.
 6. **Google:** o `calendar_id` de cada profissional precisa ser uma agenda **real
    compartilhada** com a service account. Placeholder → horário aparece mas a
    confirmação falha. Dois modelos de como a agenda chega nesse estado:
