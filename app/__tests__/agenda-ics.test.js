@@ -119,7 +119,7 @@ describe('boas-vindas ao dono (webhook)', () => {
   const esperar = () => new Promise((r) => setTimeout(r, 50));
 
   test('mensagem com o protocolo do cadastro → responde com os links', async () => {
-    await request(app).post('/webhook-whatsapp').send(msg('5521911112222', 'Oi! Quero ativar os avisos do meu salão (SLT-ABC234).'));
+    await request(app).post('/webhook-whatsapp').set('X-Webhook-Token', 'token-de-teste').send(msg('5521911112222', 'Oi! Quero ativar os avisos do meu salão (SLT-ABC234).'));
     await esperar();
     expect(enviarWhatsapp).toHaveBeenCalledTimes(1);
     const [numero, texto] = enviarWhatsapp.mock.calls[0];
@@ -128,7 +128,7 @@ describe('boas-vindas ao dono (webhook)', () => {
   });
 
   test('protocolo de OUTRO salão → silêncio (outro container responde)', async () => {
-    await request(app).post('/webhook-whatsapp').send(msg('5521911112222', 'Oi! Quero ativar os avisos do meu salão (SLT-ZZZZZZ).'));
+    await request(app).post('/webhook-whatsapp').set('X-Webhook-Token', 'token-de-teste').send(msg('5521911112222', 'Oi! Quero ativar os avisos do meu salão (SLT-ZZZZZZ).'));
     await esperar();
     expect(enviarWhatsapp).not.toHaveBeenCalled();
   });

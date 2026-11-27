@@ -495,7 +495,97 @@ O endpoint `POST /webhook-whatsapp` processa:
 - `2` → reagendar: remove o evento do Calendar + avisa cliente com o link para remarcar
 - `3` → cancelar: remove o evento do Calendar + avisa cliente
 
-O WAHA envia o evento `message` a cada mensagem recebida. O **dispatcher** repassa para todos os containers em modo central — só o dono do telefone responde.
+Só vale para horário **pendente**: confirmado e ainda não terminado (inclui o que está em andamento).
+
+**Resposta ambígua:** com **2 ou mais** pendentes (no mesmo salão ou em salões diferentes), `2` e `3` **não cancelam nada**. O cliente recebe a lista com o contato de cada salão. O salão não é avisado.
+
+**Senha (`WEBHOOK_TOKEN`, no `.env` de cada cliente):** o site do salão é público, então o webhook exige o cabeçalho `X-Webhook-Token` (ou `?token=`, no modo com número próprio — inclua-o na URL do webhook da Evolution). **Sem a variável, o salão recusa tudo (403):** respostas 1/2/3 e o "oi" do dono, sem aviso para quem mandou. O site e o envio de mensagens continuam funcionando. Cliente novo já nasce com senha (painel e `novo-cliente.sh`). Clientes sem senha:
+
+```bash
+sudo env DOCKER_CONFIG=/DATA/.docker docker exec painel-slotme node gerar-tokens-webhook.js --simular
+sudo env DOCKER_CONFIG=/DATA/.docker docker exec painel-slotme node gerar-tokens-webhook.js
+# depois, em cada cliente listado: docker compose up -d --force-recreate
+```
+
+O WAHA envia o evento `message` a cada mensagem recebida ao **dispatcher**. Para `2` e `3`, ele primeiro pergunta a cada salão os pendentes do remetente (`POST /webhook-whatsapp/pendentes`). Com 0 ou 1, repassa a todos (só o dono do telefone responde). Com 2 ou mais, não repassa e pede a um salão que envie a lista (`POST /webhook-whatsapp/ambiguo`). Um salão que não responda à consulta é ignorado (ver `docker logs webhook-dispatcher`).
+
+#### Publicação da versão com senha no webhook (fazer uma vez)
+
+> Depois que este código entrar na `main`, **não** basta o rebuild de costume: sem as senhas, os salões recusam tudo o que vem do WhatsApp. Siga a ordem.
+
+Prefixo de todos os comandos Docker: `sudo env DOCKER_CONFIG=/DATA/.docker`.
+
+```bash
+# 1) código, cópia da imagem atual e painel (o .dockerignore novo já exclui os backups de .env)
+cd ~/Agendamento && git pull
+# a cópia só é feita se ainda não existir: repetir este passo depois do 3 não a sobrescreve
+sudo env DOCKER_CONFIG=/DATA/.docker docker image inspect motor-agendamento:antes-webhook >/dev/null 2>&1 \
+  || sudo env DOCKER_CONFIG=/DATA/.docker docker tag motor-agendamento:v1 motor-agendamento:antes-webhook
+cd ~/Agendamento/painel
+sudo env DOCKER_CONFIG=/DATA/.docker docker build -t painel-slotme:v1 .
+sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d
+
+# 2) senhas: simular, aplicar e conferir. Só siga se terminar com "Todos os clientes têm senha."
+#    NÃO recrie salões ainda (nem pelo "Aplicar" do painel): com a imagem antiga e a
+#    senha no .env eles recusariam as respostas. Isso fica para o passo 5.
+sudo env DOCKER_CONFIG=/DATA/.docker docker exec painel-slotme node gerar-tokens-webhook.js --simular
+sudo env DOCKER_CONFIG=/DATA/.docker docker exec painel-slotme node gerar-tokens-webhook.js
+
+# 3) imagem do motor
+cd ~/Agendamento/app
+sudo env DOCKER_CONFIG=/DATA/.docker docker build -t motor-agendamento:v1 .
+
+# 4) distribuidor PRIMEIRO (com salões antigos, ele repassa como antes)
+cd ~/Agendamento/dispatcher
+sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d --force-recreate
+
+# 5) TODOS os salões, um por vez, a Bya por último. Use "ps -a": o cadastro automático
+#    cria salões, e os PAUSADOS também precisam ser recriados — senão, ao "Reativar",
+#    voltam com a imagem antiga e o webhook aberto. Para um pausado, troque "up -d" por
+#    "up --no-start" (recria sem ligar).
+sudo env DOCKER_CONFIG=/DATA/.docker docker ps -a --format '{{.Names}}  {{.Status}}'
+cd ~/Agendamento/clientes/<slug>
+sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d --force-recreate
+sudo env DOCKER_CONFIG=/DATA/.docker docker logs --tail 30 <slug>-app    # não pode ter "WEBHOOK_TOKEN vazio"
+```
+
+**6) Webhook do WAHA** deve apontar para `http://webhook-dispatcher:3000/webhook-whatsapp`, nunca direto para um salão (`GET /api/sessions/agendamento`, em `config.webhooks`, ou o comando do §8.5).
+
+**7) Teste.** Sem senha deve dar **403** (troque a porta pela de um salão; repita pelo endereço público):
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8090/webhook-whatsapp \
+  -H 'Content-Type: application/json' -d '{}'
+```
+
+Depois, com o **próprio** número: marque um horário e responda `3` (deve cancelar); marque dois e responda `3` (deve vir a lista, sem cancelar). No `docker logs webhook-dispatcher` não pode aparecer `(403)`, `sem WEBHOOK_TOKEN` nem `sem resposta à consulta`.
+
+**Voltar atrás.** Atenção: o código **antigo**, quando encontra `WEBHOOK_TOKEN` no `.env`, passa a exigir `?token=` — voltar só a imagem faria os salões recusarem todas as respostas. A linha da senha precisa ser desativada **salão por salão, recriando em seguida**: o distribuidor novo relê os `.env` a cada mensagem, então desativar todas de uma vez deixaria os salões ainda não recriados recusando tudo. O distribuidor é o último. Cole o bloco inteiro:
+
+```bash
+cd ~/Agendamento/clientes
+D="sudo env DOCKER_CONFIG=/DATA/.docker docker"
+# a imagem antiga volta primeiro (nada muda até recriar); sem ela, nada é alterado
+if $D tag motor-agendamento:antes-webhook motor-agendamento:v1; then
+  for slug in */; do
+    slug=${slug%/}
+    [ "$slug" = "_template" ] && continue
+    [ -f "$slug/.env" ] || continue
+    sudo sed -i 's/^WEBHOOK_TOKEN=/#WEBHOOK_TOKEN=/' "$slug/.env"
+    if [ -n "$(cd "$slug" && $D compose ps -q)" ]; then
+      (cd "$slug" && $D compose up -d --force-recreate)
+    elif [ -n "$(cd "$slug" && $D compose ps -aq)" ]; then
+      (cd "$slug" && $D compose up --no-start --force-recreate)   # pausado continua pausado
+    fi || { echo "FALHOU em $slug: resolva antes de continuar"; break; }
+  done
+  echo "Confira que não apareceu FALHOU e então recrie o distribuidor:"
+  echo "  cd ~/Agendamento/dispatcher && $D compose up -d --force-recreate"
+else
+  echo "Imagem antiga não encontrada: nada foi alterado."
+fi
+```
+
+Isso volta a deixar o webhook aberto, como antes. Para publicar de novo, siga a ordem desde o passo 1: o passo 2 gera senhas novas.
 
 ### 8.5 Modo central + dispatcher (fan-out)
 

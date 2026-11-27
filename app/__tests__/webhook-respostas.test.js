@@ -65,7 +65,7 @@ const statusDe = (eventoId) =>
 // O webhook responde 200 antes de processar; a espera deixa o processamento terminar.
 async function responder(texto) {
   await request(app)
-    .post('/webhook-whatsapp')
+    .post('/webhook-whatsapp').set('X-Webhook-Token', 'token-de-teste')
     .send({ event: 'message', payload: { from: `${TELEFONE}@c.us`, body: texto, fromMe: false } });
   await new Promise((r) => setTimeout(r, 50));
 }
@@ -98,23 +98,31 @@ describe.each([['2'], ['3']])('resposta "%s"', (opcao) => {
 });
 
 describe('escolha do agendamento', () => {
-  test('com dois horários futuros, vale o mais próximo', async () => {
+  test('com dois horários futuros, não cancela nenhum', async () => {
     criarEm('evt-semana-que-vem', 7 * DIA);
     criarEm('evt-amanha', DIA);
 
     await responder('3');
 
-    expect(statusDe('evt-amanha')).toBe('cancelado');
+    expect(statusDe('evt-amanha')).toBe('confirmado');
     expect(statusDe('evt-semana-que-vem')).toBe('confirmado');
   });
 
   test('horário em andamento ainda pode ser cancelado (cliente atrasado)', async () => {
     criarEm('evt-agora', -HORA / 4);
-    criarEm('evt-semana-que-vem', 7 * DIA);
 
     await responder('3');
 
     expect(statusDe('evt-agora')).toBe('cancelado');
+  });
+
+  test('horário em andamento conta como pendente junto com um futuro', async () => {
+    criarEm('evt-agora', -HORA / 4);
+    criarEm('evt-semana-que-vem', 7 * DIA);
+
+    await responder('3');
+
+    expect(statusDe('evt-agora')).toBe('confirmado');
     expect(statusDe('evt-semana-que-vem')).toBe('confirmado');
   });
 

@@ -68,44 +68,34 @@ describe('montarMensagem — substituição de variáveis', () => {
   });
 });
 
-// ─── Formato com emojis ───────────────────────────────────────────────────────
+// ─── Conteúdo obrigatório ─────────────────────────────────────────────────────
+// montarMensagem sorteia uma variação; por isso estes testes percorrem TODAS as
+// do PADRAO, senão uma variação quebrada passaria na maioria das execuções.
 
-describe('montarMensagem — formato das mensagens', () => {
-  test('confirmacao contém bloco estruturado com emojis', () => {
-    const msg = montarMensagem('confirmacao', DADOS);
-    expect(msg).toContain('🏆 Serviço:');
-    expect(msg).toContain('👤 Com:');
-    expect(msg).toContain('📅 Data:');
-    expect(msg).toContain('⏰ Horário:');
+describe('PADRAO — conteúdo obrigatório em todas as variações', () => {
+  test.each([
+    ['confirmacao', ['{servico}', '{profissional}', '{data}', '{hora}']],
+    ['vespera', ['{servico}', '{hora}']],
+    ['lembrete1h', ['{servico}']],
+    ['reagendar', ['👉 {link}']],
+  ])('%s informa %j', (tipo, trechos) => {
+    for (const variacao of PADRAO[tipo]) {
+      for (const trecho of trechos) expect(variacao).toContain(trecho);
+    }
   });
 
-  test('confirmacao contém opções 2 e 3 com emoji numérico', () => {
-    const msg = montarMensagem('confirmacao', DADOS);
-    expect(msg).toContain('2️⃣');
-    expect(msg).toContain('3️⃣');
-    expect(msg).not.toContain('1️⃣'); // confirmação não tem opção de confirmar
-  });
-
-  test('vespera contém bloco estruturado e opções 1/2/3', () => {
-    const msg = montarMensagem('vespera', DADOS);
-    expect(msg).toContain('🏆 Serviço:');
-    expect(msg).toContain('⏰ Horário:');
-    expect(msg).toContain('1️⃣');
-    expect(msg).toContain('2️⃣');
-    expect(msg).toContain('3️⃣');
-  });
-
-  test('lembrete1h contém bloco estruturado sem opções de resposta', () => {
-    const msg = montarMensagem('lembrete1h', DADOS);
-    expect(msg).toContain('🏆 Serviço:');
-    expect(msg).toContain('⏰ Horário:');
-    expect(msg).not.toContain('1️⃣');
-    expect(msg).not.toContain('2️⃣');
-  });
-
-  test('reagendar contém emoji de seta e link em linha separada', () => {
-    const msg = montarMensagem('reagendar', DADOS);
-    expect(msg).toContain('👉 https://test.example.com');
+  // As opções oferecidas precisam bater com o que o webhook entende (1/2/3).
+  test.each([
+    ['confirmacao', ['2️⃣ Reagendar', '3️⃣ Cancelar']],
+    ['vespera', ['1️⃣ Confirmar', '2️⃣ Reagendar', '3️⃣ Cancelar']],
+    ['lembrete1h', []],
+    ['reagendar', []],
+    ['confirmado', []],
+    ['cancelado', []],
+  ])('%s oferece exatamente as opções %j', (tipo, opcoes) => {
+    for (const variacao of PADRAO[tipo]) {
+      expect(variacao.match(/[123]️⃣ \S+/g) || []).toEqual(opcoes);
+    }
   });
 });
 
