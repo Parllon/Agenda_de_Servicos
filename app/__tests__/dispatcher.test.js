@@ -211,3 +211,33 @@ describe('enviarHttp', () => {
       .rejects.toThrow();
   });
 });
+
+describe('tempo de espera', () => {
+  // A lista só é confirmada depois do envio, que passa pela fila "humana" (pausa e
+  // "digitando") e pode levar bem mais que uma consulta.
+  let servidor;
+  let comPrazos;
+  let destino;
+  beforeAll((fim) => {
+    const guardado = { ...process.env };
+    process.env.DISPATCH_TIMEOUT_MS = '100';
+    process.env.DISPATCH_AVISO_TIMEOUT_MS = '3000';
+    jest.isolateModules(() => { comPrazos = require('../webhook-dispatcher'); });
+    process.env = guardado;
+    servidor = http.createServer((req, res) => setTimeout(() => res.end('ok'), 400));
+    servidor.listen(0, '127.0.0.1', () => {
+      destino = { slug: 'ana', host: '127.0.0.1', porta: servidor.address().port, token: 't' };
+      fim();
+    });
+  });
+  afterAll((fim) => { servidor.close(fim); });
+
+  test('consulta e repasse desistem no prazo curto', async () => {
+    await expect(comPrazos.enviarHttp(destino, CONSULTA, '{}')).rejects.toThrow('timeout');
+    await expect(comPrazos.enviarHttp(destino, REPASSE, '{}')).rejects.toThrow('timeout');
+  });
+
+  test('o envio da lista tem prazo longo', async () => {
+    await expect(comPrazos.enviarHttp(destino, AVISO, '{}')).resolves.toMatchObject({ status: 200 });
+  });
+});

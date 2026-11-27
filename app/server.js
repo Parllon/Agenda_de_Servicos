@@ -750,10 +750,11 @@ app.post('/webhook-whatsapp/ambiguo', exigirTokenWebhook, async (req, res) => {
     if (!Array.isArray(itens) || itens.length === 0) return res.status(400).json({ erro: 'itens ausentes' });
     const phone = await resolverTelefone(String(from || ''));
     if (!phone) return res.status(502).json({ erro: 'remetente não identificado' });
-    // Sem await: a fila "humana" de envio leva segundos e o distribuidor tem timeout.
+    // Espera o envio (fila "humana", leva segundos): enviarWhatsapp não lança erro,
+    // devolve { ok: false }, e o distribuidor precisa saber para tentar outro salão.
     // Sem prefixo: a lista pode citar mais de um salão.
-    enviarWhatsapp(phone, montarAvisoAmbiguo(itens, TZ), { semPrefixo: true })
-      .catch((e) => console.error('[webhook/ambiguo] envio:', e.message));
+    const envio = await enviarWhatsapp(phone, montarAvisoAmbiguo(itens, TZ), { semPrefixo: true });
+    if (envio?.ok === false) return res.status(502).json({ erro: 'a lista não foi enviada' });
     res.json({ ok: true });
   } catch (e) {
     console.error('[webhook/ambiguo]', e.message);

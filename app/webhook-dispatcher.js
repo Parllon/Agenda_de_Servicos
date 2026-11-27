@@ -32,6 +32,8 @@ const PORT = parseInt(process.env.DISPATCH_PORT || '3000', 10);
 const CLIENTES_DIR = process.env.CLIENTES_DIR || '/clientes';
 const PORTA_INTERNA = parseInt(process.env.ALVO_PORTA || '3000', 10); // porta interna dos apps
 const TIMEOUT_MS = parseInt(process.env.DISPATCH_TIMEOUT_MS || '8000', 10);
+// /ambiguo só responde depois de enviar a mensagem (pausa "humana" + fila do salão).
+const TIMEOUT_AVISO_MS = parseInt(process.env.DISPATCH_AVISO_TIMEOUT_MS || '60000', 10);
 
 // ---- Lê uma chave de um arquivo .env, ignorando comentário inline (mesma ideia
 //      do parse do painel: "valor   # comentário" -> "valor"). ----
@@ -85,8 +87,9 @@ function enviarHttp(alvo, caminho, corpo) {
   return new Promise((resolve, reject) => {
     const headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(corpo) };
     if (alvo.token) headers['X-Webhook-Token'] = alvo.token;
+    const timeout = caminho === '/webhook-whatsapp/ambiguo' ? TIMEOUT_AVISO_MS : TIMEOUT_MS;
     const req = http.request(
-      { host: alvo.host, port: alvo.porta, path: caminho, method: 'POST', headers, timeout: TIMEOUT_MS },
+      { host: alvo.host, port: alvo.porta, path: caminho, method: 'POST', headers, timeout },
       (resp) => {
         let texto = '';
         resp.setEncoding('utf8');

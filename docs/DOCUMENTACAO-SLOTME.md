@@ -518,12 +518,16 @@ Prefixo de todos os comandos Docker: `sudo env DOCKER_CONFIG=/DATA/.docker`.
 ```bash
 # 1) código, cópia da imagem atual e painel (o .dockerignore novo já exclui os backups de .env)
 cd ~/Agendamento && git pull
-sudo env DOCKER_CONFIG=/DATA/.docker docker tag motor-agendamento:v1 motor-agendamento:antes-webhook
+# a cópia só é feita se ainda não existir: repetir este passo depois do 3 não a sobrescreve
+sudo env DOCKER_CONFIG=/DATA/.docker docker image inspect motor-agendamento:antes-webhook >/dev/null 2>&1 \
+  || sudo env DOCKER_CONFIG=/DATA/.docker docker tag motor-agendamento:v1 motor-agendamento:antes-webhook
 cd ~/Agendamento/painel
 sudo env DOCKER_CONFIG=/DATA/.docker docker build -t painel-slotme:v1 .
 sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d
 
 # 2) senhas: simular, aplicar e conferir. Só siga se terminar com "Todos os clientes têm senha."
+#    NÃO recrie salões ainda (nem pelo "Aplicar" do painel): com a imagem antiga e a
+#    senha no .env eles recusariam as respostas. Isso fica para o passo 5.
 sudo env DOCKER_CONFIG=/DATA/.docker docker exec painel-slotme node gerar-tokens-webhook.js --simular
 sudo env DOCKER_CONFIG=/DATA/.docker docker exec painel-slotme node gerar-tokens-webhook.js
 
@@ -535,8 +539,11 @@ sudo env DOCKER_CONFIG=/DATA/.docker docker build -t motor-agendamento:v1 .
 cd ~/Agendamento/dispatcher
 sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d --force-recreate
 
-# 5) cada salão ativo, um por vez, a Bya por último (liste antes: o cadastro automático cria salões)
-sudo env DOCKER_CONFIG=/DATA/.docker docker ps --format '{{.Names}}'
+# 5) TODOS os salões, um por vez, a Bya por último. Use "ps -a": o cadastro automático
+#    cria salões, e os PAUSADOS também precisam ser recriados — senão, ao "Reativar",
+#    voltam com a imagem antiga e o webhook aberto. Para um pausado, troque "up -d" por
+#    "up --no-start" (recria sem ligar).
+sudo env DOCKER_CONFIG=/DATA/.docker docker ps -a --format '{{.Names}}  {{.Status}}'
 cd ~/Agendamento/clientes/<slug>
 sudo env DOCKER_CONFIG=/DATA/.docker docker compose up -d --force-recreate
 sudo env DOCKER_CONFIG=/DATA/.docker docker logs --tail 30 <slug>-app    # não pode ter "WEBHOOK_TOKEN vazio"
@@ -553,13 +560,29 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8090/webhook-w
 
 Depois, com o **próprio** número: marque um horário e responda `3` (deve cancelar); marque dois e responda `3` (deve vir a lista, sem cancelar). No `docker logs webhook-dispatcher` não pode aparecer `(403)`, `sem WEBHOOK_TOKEN` nem `sem resposta à consulta`.
 
-**Voltar atrás.** Atenção: o código **antigo**, quando encontra `WEBHOOK_TOKEN` no `.env`, passa a exigir `?token=` — voltar só a imagem faria os salões recusarem todas as respostas. Desative a linha antes:
+**Voltar atrás.** Atenção: o código **antigo**, quando encontra `WEBHOOK_TOKEN` no `.env`, passa a exigir `?token=` — voltar só a imagem faria os salões recusarem todas as respostas. A linha da senha precisa ser desativada **salão por salão, recriando em seguida**: o distribuidor novo relê os `.env` a cada mensagem, então desativar todas de uma vez deixaria os salões ainda não recriados recusando tudo. O distribuidor é o último. Cole o bloco inteiro:
 
 ```bash
 cd ~/Agendamento/clientes
-for d in */; do [ "$d" = "_template/" ] || sudo sed -i 's/^WEBHOOK_TOKEN=/#WEBHOOK_TOKEN=/' "$d.env"; done
-sudo env DOCKER_CONFIG=/DATA/.docker docker tag motor-agendamento:antes-webhook motor-agendamento:v1
-# depois: docker compose up -d --force-recreate no dispatcher e em cada salão
+D="sudo env DOCKER_CONFIG=/DATA/.docker docker"
+# a imagem antiga volta primeiro (nada muda até recriar); sem ela, nada é alterado
+if $D tag motor-agendamento:antes-webhook motor-agendamento:v1; then
+  for slug in */; do
+    slug=${slug%/}
+    [ "$slug" = "_template" ] && continue
+    [ -f "$slug/.env" ] || continue
+    sudo sed -i 's/^WEBHOOK_TOKEN=/#WEBHOOK_TOKEN=/' "$slug/.env"
+    if [ -n "$(cd "$slug" && $D compose ps -q)" ]; then
+      (cd "$slug" && $D compose up -d --force-recreate)
+    elif [ -n "$(cd "$slug" && $D compose ps -aq)" ]; then
+      (cd "$slug" && $D compose up --no-start --force-recreate)   # pausado continua pausado
+    fi || { echo "FALHOU em $slug: resolva antes de continuar"; break; }
+  done
+  echo "Confira que não apareceu FALHOU e então recrie o distribuidor:"
+  echo "  cd ~/Agendamento/dispatcher && $D compose up -d --force-recreate"
+else
+  echo "Imagem antiga não encontrada: nada foi alterado."
+fi
 ```
 
 Isso volta a deixar o webhook aberto, como antes. Para publicar de novo, siga a ordem desde o passo 1: o passo 2 gera senhas novas.

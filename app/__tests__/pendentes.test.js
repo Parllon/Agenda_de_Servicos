@@ -133,14 +133,23 @@ describe('POST /webhook-whatsapp/pendentes', () => {
 describe('POST /webhook-whatsapp/ambiguo', () => {
   const itens = [{ salao: 'Salão X', contato: '', inicio: daqui(DIA), servico: 'Corte' }];
 
-  test('envia a lista sem prefixo de salão, sem esperar o envio terminar', async () => {
-    enviarWhatsapp.mockReturnValueOnce(new Promise(() => {})); // a fila "humana" demora
+  test('envia a lista sem prefixo de salão e responde 200', async () => {
     const res = await postar('/webhook-whatsapp/ambiguo', { from: FROM, itens });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
     expect(enviarWhatsapp).toHaveBeenCalledWith(
       TELEFONE, montarAvisoAmbiguo(itens, 'America/Sao_Paulo'), { semPrefixo: true }
     );
+  });
+
+  // enviarWhatsapp não lança erro: devolve { ok: false }. Responder 200 aqui faria o
+  // distribuidor achar que a lista saiu e não tentar outro salão (cliente no vácuo).
+  test.each([
+    ['falha no envio', { ok: false, error: 'HTTP 401' }],
+    ['WhatsApp desativado', { ok: false, desativado: true }],
+  ])('%s → 502', async (_, resultado) => {
+    enviarWhatsapp.mockResolvedValueOnce(resultado);
+    expect((await postar('/webhook-whatsapp/ambiguo', { from: FROM, itens })).status).toBe(502);
   });
 
   test('sem senha → 403', async () => {
