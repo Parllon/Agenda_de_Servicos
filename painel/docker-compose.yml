@@ -1,5 +1,6 @@
-# docker-compose.yml do PAINEL admin (uso interno, só LAN).
-# NÃO usa a rede agenda-net e NÃO entra no Cloudflare — fica só em 192.168.1.100:8099.
+# docker-compose.yml do PAINEL admin (uso interno, administração só na LAN).
+# NÃO usa a rede agenda-net. Administração em 192.168.1.100:8099. O túnel Cloudflare
+# aponta cadastro.* para cá, mas só as três rotas do site passam (lib/acesso.js).
 #
 # Variáveis vêm do ./.env desta pasta (copie de exemplo.env). As principais:
 #   PROJETO_RAIZ = caminho ABSOLUTO do projeto no host (ex.: /DATA/Agendamento)

@@ -179,7 +179,7 @@ WHATSAPP_PREFIXO_LABEL=Bya                        # texto do prefixo; vazio = us
 
 # --- WAHA (WhatsApp HTTP API — self-hosted) ---
 WAHA_URL=http://waha:3000                         # hostname na rede agenda-net
-WAHA_API_KEY=slotme-waha-2026                     # X-Api-Key do WAHA (definida no docker-compose do waha/)
+WAHA_API_KEY=<chave do waha/.env>                 # X-Api-Key do WAHA (nunca versionar)
 WAHA_SESSION=agendamento                          # nome da sessão pareada no WAHA
 
 # --- WhatsApp: aviso interno à dona (instância dedicada, só envio — ver §8.7) ---
@@ -313,7 +313,7 @@ WHATSAPP_INSTANCE_CENTRAL=agendamento
 WHATSAPP_PREFIXO_NOME=true
 WHATSAPP_PREFIXO_LABEL=<Nome do Salão>
 WAHA_URL=http://waha:3000
-WAHA_API_KEY=slotme-waha-2026
+WAHA_API_KEY=<chave do waha/.env>
 WAHA_SESSION=agendamento
 ```
 
@@ -458,13 +458,19 @@ sudo env DOCKER_CONFIG=/DATA/.docker docker logs --tail 50 <slug>-app
 - Engine: **WEBJS** (whatsapp-web.js + Chromium).
 - Número pareado: **5521994985733**.
 - Sessão: `agendamento`.
-- API Key: `slotme-waha-2026` (header `X-Api-Key` em todas as chamadas).
+- API Key: header `X-Api-Key` em todas as chamadas. O valor **não vai para o Git**: fica em `waha/.env` (`WAHA_API_KEY=...`), e a mesma chave vai no `.env` do painel e no de cada cliente.
+- Trocar a chave: `sudo bash scripts/trocar-chave-waha.sh` (só simula) e depois com `--aplicar`. Ele atualiza todos os `.env`, recria os containers e confere a sessão.
 - Dashboard: `http://192.168.1.100:21465/dashboard` — apenas visual; não reflete o estado real da sessão. Use a API para verificar.
+
+**Antes dos comandos `curl` desta doc**, carregar a chave no terminal:
+```bash
+export WAHA_API_KEY=$(sudo sed -n 's/^WAHA_API_KEY=//p' ~/Agendamento/waha/.env)
+```
 
 **Verificar status da sessão:**
 ```bash
 curl -s http://localhost:21465/api/sessions/agendamento \
-  -H 'X-Api-Key: slotme-waha-2026' | grep status
+  -H "X-Api-Key: $WAHA_API_KEY" | grep status
 # "status":"WORKING" = OK
 ```
 
@@ -504,7 +510,7 @@ Ativar um cliente no modo central: setar as vars WAHA no `.env` e `WHATSAPP_MODE
 **Configurar webhook no WAHA** (já está configurado — apenas para referência):
 ```bash
 curl -X PUT http://localhost:21465/api/agendamento/webhook \
-  -H 'X-Api-Key: slotme-waha-2026' \
+  -H "X-Api-Key: $WAHA_API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"url":"http://webhook-dispatcher:3000/webhook-whatsapp","events":["message"]}'
 ```
@@ -523,14 +529,14 @@ Se a sessão expirar (celular sem internet, troca de número etc.):
 ```bash
 # 1) Verificar se realmente caiu
 curl -s http://localhost:21465/api/sessions/agendamento \
-  -H 'X-Api-Key: slotme-waha-2026' | grep status
+  -H "X-Api-Key: $WAHA_API_KEY" | grep status
 
 # 2) Reiniciar sessão
 curl -X POST http://localhost:21465/api/sessions/agendamento/restart \
-  -H 'X-Api-Key: slotme-waha-2026'
+  -H "X-Api-Key: $WAHA_API_KEY"
 
 # 3) Baixar QR (não abre no browser — exige o header X-Api-Key)
-curl -H 'X-Api-Key: slotme-waha-2026' \
+curl -H "X-Api-Key: $WAHA_API_KEY" \
   http://localhost:21465/api/agendamento/auth/qr \
   -o /DATA/Agendamento/Imagens_contexto/waha-qr.png
 # Abrir \\192.168.1.100\Agendamento\Imagens_contexto\waha-qr.png e escanear
@@ -672,7 +678,7 @@ O `TELEGRAM_BOT_TOKEN` no `.env` do cliente ativa o recurso. Deixar vazio = Tele
 | `mkdir /root/.docker: read-only file system` | Faltou o `DOCKER_CONFIG` | Prefixar com `sudo env DOCKER_CONFIG=/DATA/.docker docker ...` |
 | `Permission denied` em qualquer comando | Faltou `sudo` | Adicionar `sudo` |
 | WhatsApp **não entrega** para um contato específico | Erro 463 (reach-out time-lock): contato nunca enviou mensagem primeiro | Pedir que o cliente envie qualquer mensagem para 5521994985733 antes de agendar (ver §8.2) |
-| WAHA retorna **401** | `WAHA_API_KEY` ausente ou incorreta no `.env` do cliente | Confirmar que `WAHA_API_KEY=slotme-waha-2026` + `up -d --force-recreate` |
+| WAHA retorna **401** | `WAHA_API_KEY` ausente ou incorreta no `.env` do cliente | Confirmar que o `WAHA_API_KEY` é igual ao de `waha/.env` + `up -d --force-recreate` |
 | WAHA retorna **404** na sessão | Sessão `agendamento` não existe ou não iniciou | `POST /api/sessions/agendamento/restart` (ver §8.7) |
 | Webhook não recebe respostas `1/2/3` | WAHA não tem webhook configurado, ou dispatcher não está no ar | Verificar webhook via `GET /api/agendamento/webhook` e dispatcher com `docker logs webhook-dispatcher` |
 | Dashboard WAHA mostra "0 sessions" | Bug cosmético do dashboard — não afeta funcionamento | Ignorar; verificar estado real via `GET /api/sessions/agendamento` (ver §8.1) |
@@ -735,14 +741,17 @@ sudo systemctl restart cloudflared
 sudo systemctl status cloudflared
 
 # ===== WAHA =====
+# Carregar a chave no terminal (necessário para os curl abaixo):
+export WAHA_API_KEY=$(sudo sed -n 's/^WAHA_API_KEY=//p' ~/Agendamento/waha/.env)
+
 # Verificar sessão:
-curl -s http://localhost:21465/api/sessions/agendamento -H 'X-Api-Key: slotme-waha-2026' | grep status
+curl -s http://localhost:21465/api/sessions/agendamento -H "X-Api-Key: $WAHA_API_KEY" | grep status
 
 # Reiniciar sessão (se não estiver WORKING):
-curl -X POST http://localhost:21465/api/sessions/agendamento/restart -H 'X-Api-Key: slotme-waha-2026'
+curl -X POST http://localhost:21465/api/sessions/agendamento/restart -H "X-Api-Key: $WAHA_API_KEY"
 
 # Baixar QR para reconectar:
-curl -H 'X-Api-Key: slotme-waha-2026' http://localhost:21465/api/agendamento/auth/qr \
+curl -H "X-Api-Key: $WAHA_API_KEY" http://localhost:21465/api/agendamento/auth/qr \
   -o /DATA/Agendamento/Imagens_contexto/waha-qr.png
 
 # ===== GIT =====
@@ -763,9 +772,18 @@ abrir o código nem editar `dados.json`/`.env` à mão. Lista os clientes, deixa
 tudo (negócio, profissionais, serviços, mensagens, tema, expediente…) e tem um botão
 **Aplicar** que roda `up + seed + restart` (o mesmo que `atualizar-cliente.sh`) com 1 clique.
 
-> **É uma ferramenta de administração com acesso ao Docker do host.** Por isso roda
-> **só na LAN** (`192.168.1.100:8099`), **fora do Cloudflare**, e atrás de senha.
-> Nunca adicione o painel ao `config.yml` do túnel.
+> **É uma ferramenta de administração com acesso ao Docker do host.** Por isso a
+> administração (login, clientes, telas, métricas e o wizard) só responde na **LAN**
+> (`http://192.168.1.100:8099`; wizard em `/cadastro.html`), atrás de senha.
+>
+> O host `cadastro.agendamentos.app.br` passa pelo túnel porque o site SlotMe precisa
+> de **três rotas**: `POST /api/pedidos`, `GET /api/pedidos/<protocolo>/status` e
+> `POST /api/evento`. Qualquer outra coisa pela internet recebe **404**. Quem garante é
+> `painel/lib/acesso.js` (teste: `painel/__tests__/acesso.test.js`): é tratado como LAN
+> só o pedido que não passou pelo Cloudflare **e** usa endereço local (IP privado,
+> `localhost` ou `*.local`). Outro nome interno pode ser liberado em
+> `PAINEL_HOSTS_ADMIN` no `.env` do painel — **nunca** um domínio publicado no túnel.
+> Rota nova que o site precise chamar tem que entrar em `ROTAS_PUBLICAS`.
 
 ### 15.2 Arquitetura
 

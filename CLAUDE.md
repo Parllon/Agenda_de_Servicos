@@ -92,6 +92,12 @@ disso aparece. Tokens (WhatsApp/Telegram) vivem só nos `.env`.
 6. Cloudflare: criar DNS + adicionar rota no ingress (acima do `http_status:404`).
    Detalhe na seção 6 da `DOCUMENTACAO-SLOTME.md`.
 
+**Painel pela internet:** `cadastro.*` passa pelo túnel, mas só entrega `POST /api/pedidos`,
+`GET /api/pedidos/<protocolo>/status` e `POST /api/evento` (`painel/lib/acesso.js`). Login,
+administração, métricas e wizard só pela LAN (`192.168.1.100:8099`; wizard em
+`/cadastro.html`). Rota pública nova precisa entrar em `ROTAS_PUBLICAS`. A chave do WAHA
+fica só em `.env` (`waha/`, `painel/`, clientes); troca: `scripts/trocar-chave-waha.sh`.
+
 **Automático (cadastro do site SlotMe):** `slotme.agendamentos.app.br/cadastro` faz
 `POST cadastro.agendamentos.app.br/api/pedidos` (rota pública do painel). O painel valida
 (`painel/lib/pedido.js`), registra em `painel/pedidos/<protocolo>.json` (fora do Git) e

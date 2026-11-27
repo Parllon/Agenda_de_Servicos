@@ -1,0 +1,19 @@
+# O que NÃO pode entrar na imagem motor-agendamento:v1 (o Dockerfile faz COPY . .).
+
+# Segredos: o credentials.json é montado pelo docker-compose de cada cliente, e as
+# variáveis vêm do env_file. Dentro da imagem eles só serviriam para vazar.
+credentials.json
+**/.env
+**/.env.*
+
+# Bancos locais de teste
+**/*.db
+**/*.db-wal
+**/*.db-shm
+**/*.db-journal
+
+# Dependências são instaladas pelo próprio build (npm install no Dockerfile)
+node_modules
+**/npm-debug.log*
+
+__tests__

@@ -1,7 +1,8 @@
 // server.js — Painel admin local do SlotMe.
 // Serve a UI (public/) e uma API protegida por senha para criar/editar/aplicar clientes.
-// ATENÇÃO: este painel tem acesso ao Docker do host. NUNCA exponha no Cloudflare —
-// só na LAN, atrás da senha (PAINEL_SENHA). Ver DOCUMENTACAO-SLOTME.md §15.
+// ATENÇÃO: este painel tem acesso ao Docker do host. A administração só responde na
+// LAN, atrás da senha (PAINEL_SENHA). Pelo Cloudflare passam apenas as três rotas
+// públicas do site SlotMe — o bloqueio é feito em lib/acesso.js. Ver doc §15.
 
 require('dotenv').config();
 const path = require('path');
@@ -14,6 +15,7 @@ const cors = require('cors');
 const C = require('./lib/clientes');
 const M = require('./lib/metricas');
 const { criarColetor } = require('./lib/coletor');
+const { restringirAcessoPublico } = require('./lib/acesso');
 const { criar } = require('./lib/criar');
 const { aplicar } = require('./lib/aplicar');
 const { deletar } = require('./lib/deletar');
@@ -59,6 +61,11 @@ app.use(helmet({
     },
   },
 }));
+// ---- Internet x rede local ----
+// PRECISA ficar antes de qualquer rota: pela internet só passam as três rotas do
+// site SlotMe; painel, login e administração só pela rede local (lib/acesso.js).
+app.use(restringirAcessoPublico());
+
 // ---- Pedidos do site SlotMe (rota PÚBLICA) ----
 // O cadastro de slotme.agendamentos.app.br/cadastro manda o pedido aqui e o
 // cliente é criado sozinho (lib/provisionar.js). É a ÚNICA rota pública que

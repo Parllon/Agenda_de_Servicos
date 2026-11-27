@@ -17,7 +17,9 @@ services:
     ports:
       - "21465:3000"   # só LAN — usado pra reconectar via QR (ver §8.7)
     environment:
-      - WHATSAPP_API_KEY=slotme-waha-2026   # = WAHA_API_KEY lido pelos clientes (header X-Api-Key)
+      # Vem do ./.env desta pasta (fora do Git). É o mesmo WAHA_API_KEY do .env do
+      # painel e dos clientes (header X-Api-Key). Para trocar: scripts/trocar-chave-waha.sh.
+      - WHATSAPP_API_KEY=${WAHA_API_KEY:?crie waha/.env com WAHA_API_KEY - ver doc 8.1}
       - WAHA_DEFAULT_ENGINE=WEBJS
     volumes:
       - ./sessions:/app/.sessions
