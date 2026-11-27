@@ -50,6 +50,8 @@ sed -i "s/^PORTA_EXTERNA=.*/PORTA_EXTERNA=$PORTA/"        "$DIR/.env"
 sed -i "s/^TEMA=.*/TEMA=$TEMA/"                                       "$DIR/.env"
 sed -i "s/^PERFIL_PROFISSIONAL=.*/PERFIL_PROFISSIONAL=$PERFIL/"       "$DIR/.env"
 sed -i "s/^WHATSAPP_INSTANCE=.*/WHATSAPP_INSTANCE=$SLUG/"             "$DIR/.env"
+# Senha do webhook do WhatsApp (64 caracteres aleatórios) — o motor recusa tudo sem ela.
+sed -i "s/^WEBHOOK_TOKEN=.*/WEBHOOK_TOKEN=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')/" "$DIR/.env"
 
 echo ""
 echo "Cliente '$SLUG' criado em clientes/$SLUG  (porta $PORTA, tema $TEMA, perfil $PERFIL)."

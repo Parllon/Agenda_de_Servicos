@@ -64,6 +64,8 @@ function criar({ slug, porta, tema, perfil, dados }) {
     ...envWaha(),
     // Segredo dos links da agenda por assinatura (iPhone) — ver app/agenda-ics.js.
     AGENDA_ICS_SEGREDO: novoSegredo(),
+    // Senha do webhook do WhatsApp — o motor recusa tudo sem ela.
+    WEBHOOK_TOKEN: novoSegredo(),
   });
 
   // --- criar a estrutura e gravar (sem cpSync) ---

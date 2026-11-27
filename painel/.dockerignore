@@ -1,6 +1,9 @@
 node_modules
 npm-debug.log
 .env
+# Backups do .env (ex.: .env.bak-AAAAMMDD) também têm segredos.
+.env.*
+**/.env.*
 exemplo.env
 pedidos
 __tests__
