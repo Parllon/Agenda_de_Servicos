@@ -65,7 +65,7 @@ const statusDe = (eventoId) =>
 // O webhook responde 200 antes de processar; a espera deixa o processamento terminar.
 async function responder(texto) {
   await request(app)
-    .post('/webhook-whatsapp')
+    .post('/webhook-whatsapp').set('X-Webhook-Token', 'token-de-teste')
     .send({ event: 'message', payload: { from: `${TELEFONE}@c.us`, body: texto, fromMe: false } });
   await new Promise((r) => setTimeout(r, 50));
 }

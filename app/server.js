@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const db = require('./db');
@@ -678,11 +679,25 @@ function mensagemBoasVindas() {
 // ---------- POST /webhook-whatsapp (Evolution API) ----------
 // Lê o evento messages.upsert e processa as respostas:
 //   1 = Confirmar | 2 = Reagendar | 3 = Cancelar
+//
+// Sem WEBHOOK_TOKEN no .env o webhook recusa tudo: o site do salão é público e uma
+// resposta forjada cancelaria o horário de um cliente. O distribuidor envia a
+// senha no cabeçalho; ?token= serve ao modo com número próprio (Evolution).
 const WEBHOOK_TOKEN = process.env.WEBHOOK_TOKEN || '';
-app.post('/webhook-whatsapp', (req, res, next) => {
-  if (WEBHOOK_TOKEN && req.query.token !== WEBHOOK_TOKEN) return res.sendStatus(403);
+if (!WEBHOOK_TOKEN && (process.env.WHATSAPP_MODE || '').toLowerCase() !== 'desativado') {
+  console.warn('[boot] WEBHOOK_TOKEN vazio: respostas do WhatsApp serão recusadas (403)');
+}
+
+function exigirTokenWebhook(req, res, next) {
+  const recebido = Buffer.from(String(req.get('X-Webhook-Token') || req.query.token || ''));
+  const esperado = Buffer.from(WEBHOOK_TOKEN);
+  const confere = esperado.length > 0 && recebido.length === esperado.length &&
+    crypto.timingSafeEqual(recebido, esperado);
+  if (!confere) return res.sendStatus(403);
   next();
-}, async (req, res) => {
+}
+
+app.post('/webhook-whatsapp', exigirTokenWebhook, async (req, res) => {
   // Responde 200 imediatamente para o gateway não reenviar em loop.
   res.sendStatus(200);
 

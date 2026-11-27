@@ -22,6 +22,9 @@ process.env.FOLGAS = '';
 process.env.TEMA = 'tema_1';
 process.env.PERFIL_PROFISSIONAL = 'profissional';
 
+// Senha do webhook (os testes enviam no cabeçalho X-Webhook-Token)
+process.env.WEBHOOK_TOKEN = 'token-de-teste';
+
 // Rede
 process.env.CORS_ORIGIN = '';
 process.env.LANDING_URL = 'https://test.example.com';
