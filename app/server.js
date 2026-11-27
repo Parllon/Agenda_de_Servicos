@@ -15,6 +15,7 @@ const { notificar, montarAviso, htmlParaWhatsapp } = require('./telegram');
 const { TEMAS, PERFIS, cssVars, gerarTemaCustomizado } = require('./temas');
 const { gerarSlotsDoDia: _gerarSlots } = require('./utils');
 const agendaIcs = require('./agenda-ics');
+const { listarPendentes, montarAvisoAmbiguo } = require('./pendentes');
 
 const app = express();
 
@@ -697,6 +698,69 @@ function exigirTokenWebhook(req, res, next) {
   next();
 }
 
+// WhatsApp migrou para LID (@lid) em vez de @c.us. Quando necessário, resolve via
+// API de contatos do WAHA o número real do remetente. null = não deu para saber
+// (ou não é conversa 1:1).
+async function resolverTelefone(from) {
+  if (from.endsWith('@c.us')) return from.split('@')[0] || null;
+  if (!from.endsWith('@lid')) {
+    console.log('[webhook] ignorado (não é conversa 1:1):', from);
+    return null;
+  }
+  try {
+    const wahaBase = (process.env.WAHA_URL || 'http://waha:3000').replace(/\/$/, '');
+    const session = process.env.WAHA_SESSION || 'agendamento';
+    const r = await fetch(`${wahaBase}/api/${session}/contacts/${encodeURIComponent(from)}`, {
+      headers: { 'X-Api-Key': process.env.WAHA_API_KEY || '' },
+    });
+    const contact = await r.json();
+    const phone = (contact.id || '').split('@')[0];
+    if (!phone) console.log('[webhook] phone vazio após resolução LID:', from);
+    return phone || null;
+  } catch (e) {
+    console.log('[webhook] falha ao resolver LID:', from, e.message);
+    return null;
+  }
+}
+
+// ---------- Consulta e aviso usados pelo distribuidor (webhook-dispatcher.js) ----------
+// Antes de repassar um "2"/"3", ele pergunta a cada salão quais horários o
+// remetente tem. Com mais de um, pede a um deles que envie a lista.
+const CONTATO_SALAO = WA_CONTATO ? `https://wa.me/${WA_CONTATO}` : '';
+
+app.post('/webhook-whatsapp/pendentes', exigirTokenWebhook, async (req, res) => {
+  try {
+    const phone = await resolverTelefone(String(req.body?.from || ''));
+    // 502, e não lista vazia: "não sei quem é" não pode contar como "não tem horário".
+    if (!phone) return res.status(502).json({ erro: 'remetente não identificado' });
+    res.json({
+      salao: NEGOCIO.nome,
+      contato: CONTATO_SALAO,
+      horarios: listarPendentes(db, phone).map((p) => ({ inicio: p.inicio, servico: p.servico_nome })),
+    });
+  } catch (e) {
+    console.error('[webhook/pendentes]', e.message);
+    res.status(500).json({ erro: 'falha ao consultar' });
+  }
+});
+
+app.post('/webhook-whatsapp/ambiguo', exigirTokenWebhook, async (req, res) => {
+  try {
+    const { from, itens } = req.body || {};
+    if (!Array.isArray(itens) || itens.length === 0) return res.status(400).json({ erro: 'itens ausentes' });
+    const phone = await resolverTelefone(String(from || ''));
+    if (!phone) return res.status(502).json({ erro: 'remetente não identificado' });
+    // Sem await: a fila "humana" de envio leva segundos e o distribuidor tem timeout.
+    // Sem prefixo: a lista pode citar mais de um salão.
+    enviarWhatsapp(phone, montarAvisoAmbiguo(itens, TZ), { semPrefixo: true })
+      .catch((e) => console.error('[webhook/ambiguo] envio:', e.message));
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[webhook/ambiguo]', e.message);
+    res.status(500).json({ erro: 'falha ao avisar' });
+  }
+});
+
 app.post('/webhook-whatsapp', exigirTokenWebhook, async (req, res) => {
   // Responde 200 imediatamente para o gateway não reenviar em loop.
   res.sendStatus(200);
@@ -720,36 +784,8 @@ app.post('/webhook-whatsapp', exigirTokenWebhook, async (req, res) => {
       return;
     }
 
-    const from = payload.from || '';
-
-    // WhatsApp migrou para LID (@lid) em vez de @c.us. Quando necessário, resolve
-    // via API de contatos do WAHA para obter o número real do remetente.
-    let phone;
-    if (from.endsWith('@c.us')) {
-      phone = from.split('@')[0];
-    } else if (from.endsWith('@lid')) {
-      try {
-        const wahaBase = (process.env.WAHA_URL || 'http://waha:3000').replace(/\/$/, '');
-        const session = process.env.WAHA_SESSION || 'agendamento';
-        const r = await fetch(`${wahaBase}/api/${session}/contacts/${encodeURIComponent(from)}`, {
-          headers: { 'X-Api-Key': process.env.WAHA_API_KEY || '' },
-        });
-        const contact = await r.json();
-        phone = (contact.id || '').split('@')[0];
-      } catch (e) {
-        console.log('[webhook] falha ao resolver LID:', from, e.message);
-        return;
-      }
-    } else {
-      // Grupos (@g.us) e outros — ignorar
-      console.log('[webhook] ignorado (não é conversa 1:1):', from);
-      return;
-    }
-
-    if (!phone) {
-      console.log('[webhook] ignorado (phone vazio após resolução LID)');
-      return;
-    }
+    const phone = await resolverTelefone(payload.from || '');
+    if (!phone) return;
 
     // Texto da mensagem
     const texto = (payload.body || '').trim();
@@ -764,18 +800,9 @@ app.post('/webhook-whatsapp', exigirTokenWebhook, async (req, res) => {
       return;
     }
 
-    // Agendamento ativo mais próximo desse número. "Ativo" = ainda não terminou:
-    // horários passados continuam 'confirmado' no banco. Usa `fim` para o cliente
-    // atrasado ainda alcançar o horário em andamento. datetime() normaliza o fuso
-    // ("Z" ou "-03:00"); comparar as datas como texto daria errado.
-    const ag = db
-      .prepare(
-        `SELECT * FROM agendamentos
-         WHERE cliente_telefone = ? AND status = 'confirmado'
-           AND datetime(fim) > datetime('now')
-         ORDER BY datetime(inicio) ASC LIMIT 1`
-      )
-      .get(phone);
+    // Agendamento ativo mais próximo desse número (ver pendentes.js).
+    const pendentes = listarPendentes(db, phone);
+    const ag = pendentes[0];
 
     if (!ag) {
       // No modo central a Evolution faz fan-out do mesmo inbound p/ todos os
@@ -787,6 +814,18 @@ app.post('/webhook-whatsapp', exigirTokenWebhook, async (req, res) => {
       }
       console.log('[webhook] nenhum agendamento confirmado para', phone);
       await enviarWhatsapp(phone, 'Não encontrei um agendamento ativo no seu número. 🤔');
+      return;
+    }
+
+    // Trava: com mais de um pendente, "2"/"3" não diz qual. No modo central quem
+    // barra primeiro é o distribuidor (que enxerga todos os salões); esta cobre o
+    // número próprio e os dois horários no mesmo salão.
+    if (texto !== '1' && pendentes.length > 1) {
+      console.log(`[webhook] ${pendentes.length} horários pendentes: nada cancelado, enviando a lista`);
+      const itens = pendentes.map((p) => ({
+        salao: NEGOCIO.nome, contato: CONTATO_SALAO, inicio: p.inicio, servico: p.servico_nome,
+      }));
+      await enviarWhatsapp(phone, montarAvisoAmbiguo(itens, TZ), { semPrefixo: true });
       return;
     }
     console.log(`[webhook] agendamento encontrado: id ${ag.id}, inicio ${ag.inicio}`);

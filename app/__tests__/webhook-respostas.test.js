@@ -98,23 +98,31 @@ describe.each([['2'], ['3']])('resposta "%s"', (opcao) => {
 });
 
 describe('escolha do agendamento', () => {
-  test('com dois horários futuros, vale o mais próximo', async () => {
+  test('com dois horários futuros, não cancela nenhum', async () => {
     criarEm('evt-semana-que-vem', 7 * DIA);
     criarEm('evt-amanha', DIA);
 
     await responder('3');
 
-    expect(statusDe('evt-amanha')).toBe('cancelado');
+    expect(statusDe('evt-amanha')).toBe('confirmado');
     expect(statusDe('evt-semana-que-vem')).toBe('confirmado');
   });
 
   test('horário em andamento ainda pode ser cancelado (cliente atrasado)', async () => {
     criarEm('evt-agora', -HORA / 4);
-    criarEm('evt-semana-que-vem', 7 * DIA);
 
     await responder('3');
 
     expect(statusDe('evt-agora')).toBe('cancelado');
+  });
+
+  test('horário em andamento conta como pendente junto com um futuro', async () => {
+    criarEm('evt-agora', -HORA / 4);
+    criarEm('evt-semana-que-vem', 7 * DIA);
+
+    await responder('3');
+
+    expect(statusDe('evt-agora')).toBe('confirmado');
     expect(statusDe('evt-semana-que-vem')).toBe('confirmado');
   });
 
