@@ -749,12 +749,16 @@ app.post('/webhook-whatsapp', (req, res, next) => {
       return;
     }
 
-    // Agendamento ativo mais próximo desse número
+    // Agendamento ativo mais próximo desse número. "Ativo" = ainda não terminou:
+    // horários passados continuam 'confirmado' no banco. Usa `fim` para o cliente
+    // atrasado ainda alcançar o horário em andamento. datetime() normaliza o fuso
+    // ("Z" ou "-03:00"); comparar as datas como texto daria errado.
     const ag = db
       .prepare(
         `SELECT * FROM agendamentos
          WHERE cliente_telefone = ? AND status = 'confirmado'
-         ORDER BY inicio ASC LIMIT 1`
+           AND datetime(fim) > datetime('now')
+         ORDER BY datetime(inicio) ASC LIMIT 1`
       )
       .get(phone);
 
